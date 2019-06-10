@@ -58,6 +58,7 @@ def get_mask_of_largest_connected_component(img_mask):
     mask, mask_pixels_dict = get_masks_and_sizes_of_connected_components(img_mask)
     largest_mask_index = pd.Series(mask_pixels_dict).idxmax()
     largest_mask = mask == largest_mask_index
+    # F: full mask of largest component
     return largest_mask
 
 
@@ -66,8 +67,11 @@ def get_edge_values(img, largest_mask, axis):
     Finds the bounding box for the largest connected component
     """
     assert axis in ["x", "y"]
+    # returns True for rows, axis="y", or columns, axis="x", with non zero values
+    # F: the np.arange is the index array which is sliced by has_value and then pick first and last element
     has_value = np.any(largest_mask, axis=int(axis == "y"))
     edge_start = np.arange(img.shape[int(axis == "x")])[has_value][0]
+    # F: the plus one at the end maybe a source of error
     edge_end = np.arange(img.shape[int(axis == "x")])[has_value][-1] + 1
     return edge_start, edge_end
 
@@ -194,6 +198,8 @@ def crop_img_from_largest_connected(img, mode, erode_dialate=True, iterations=10
     x_edge_left, x_edge_right = get_edge_values(img, largest_mask, "x")
 
     # extract bottommost pixel info
+    # F: you have the y_edge_bottom but you are missing the x position of that pixel.
+    # F: bottomost_pixel = (bottommost_nonzero_x, bottommost_nonzero_y) = (bottommost_nonzero_x, y_edge_bottom-1)
     bottommost_nonzero_y, bottommost_nonzero_x = get_bottommost_pixels(img, largest_mask, y_edge_bottom)
 
     # include maximum 'buffer_size' more pixels on both sides just to make sure we don't miss anything
@@ -255,10 +261,15 @@ def crop_mammogram(input_data_folder, exam_list_path, cropped_exam_list_path, ou
     In parallel, crops mammograms in DICOM format found in input_data_folder and save as png format in
     output_data_folder and saves new image list in cropped_image_list_path
     """
+
+    # list of exams (one dictionary per exam)
     exam_list = pickling.unpickle_from_file(exam_list_path)
     
+    # list per image (one dictionary per image). It contains same information than in list of exams + cropped information if present.
     image_list = data_handling.unpack_exam_into_images(exam_list)
     
+    print( image_list )
+
     if os.path.exists(output_data_folder):
         # Prevent overwriting to an existing directory
         print("Error: the directory to save cropped images already exists.")
@@ -302,6 +313,8 @@ def crop_mammogram_one_image(scan, input_data_folder, output_data_folder, num_it
     full_file_path = os.path.join(input_data_folder, scan['short_file_path']+'.png')
     image = reading_images.read_image_png(full_file_path)
     try:
+        print(image_orientation(scan['horizontal_flip'], scan['side']))
+        exit()
         # error detection using erosion. Also get cropping information for this image.
         cropping_info = crop_img_from_largest_connected(
             image, 

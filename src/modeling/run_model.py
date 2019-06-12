@@ -48,6 +48,7 @@ def run_model(model, exam_list, parameters):
     else:
         device = torch.device("cpu")
     model = model.to(device)
+    # F: sets model in evaluation mode. It has an effect in certain modules: e.g. Dropout or BatchNorm Layers
     model.eval()
 
     random_number_generator = np.random.RandomState(parameters["seed"])
@@ -58,9 +59,12 @@ def run_model(model, exam_list, parameters):
         predictions_ls = []
         for datum in tqdm.tqdm(exam_list):
             predictions_for_datum = []
+            # F: VIEWS is a adhoc class
+            # F: VIEWS.LIST : list of views as string
             loaded_image_dict = {view: [] for view in VIEWS.LIST}
             loaded_heatmaps_dict = {view: [] for view in VIEWS.LIST}
             for view in VIEWS.LIST:
+                # F: for one exam, all images of a specific view
                 for short_file_path in datum[view]:
                     loaded_image = loading.load_image(
                         image_path=os.path.join(parameters["image_path"], short_file_path + image_extension),
@@ -82,6 +86,9 @@ def run_model(model, exam_list, parameters):
                     loaded_image_dict[view].append(loaded_image)
                     loaded_heatmaps_dict[view].append(loaded_heatmaps)
             for data_batch in tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"]):
+                tmp = tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"])
+                print(f"partition_batch: {tmp}")
+                exit()
                 batch_dict = {view: [] for view in VIEWS.LIST}
                 for _ in data_batch:
                     for view in VIEWS.LIST:
@@ -180,6 +187,11 @@ def main():
         "heatmaps_path": args.heatmaps_path,
         "use_hdf5": args.use_hdf5
     }
+
+    exam_list = pickling.unpickle_from_file(args.data_path)
+    print(exam_list[0])
+    # exit()
+
     load_run_save(
         model_path=args.model_path,
         data_path=args.data_path,

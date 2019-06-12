@@ -35,6 +35,13 @@ import src.utilities.saving_images as saving_images
 import src.utilities.data_handling as data_handling
 
 
+
+
+###### My own additions ###############
+import sys
+# from matplotlib import pyplot as plt
+
+
 def get_masks_and_sizes_of_connected_components(img_mask):
     """
     Finds the connected components from the mask of the image
@@ -206,10 +213,12 @@ def crop_img_from_largest_connected(img, mode, erode_dialate=True, iterations=10
     y_edge_top, y_edge_bottom = include_buffer_y_axis(img, y_edge_top, y_edge_bottom, buffer_size)
     
     # If cropped image not starting from corresponding edge, they are wrong. Record the distance, will reject if not 0.
+    # F: they use some weird notation for mode: mode = image_orientation(). L-CC = right, R-CC = left
     distance_from_starting_side = get_distance_from_starting_side(img, mode, x_edge_left, x_edge_right)
 
     # include more pixels on either side just to make sure we don't miss anything, if the next column
     #   contains non-zero value and isn't noise
+    # F: it includes depending on mode: if left, it adds on the left. if right, it adds on the right.
     x_edge_left, x_edge_right = include_buffer_x_axis(img, mode, x_edge_left, x_edge_right, buffer_size)
 
     # convert bottommost pixel locations w.r.t. newly cropped image. Flip if necessary.
@@ -241,6 +250,8 @@ def image_orientation(horizontal_flip, side):
     Returns the direction where the breast should be facing in the original image
     This information is used in cropping.crop_img_horizontally_from_largest_connected
     """
+    # F: refers to breast orientation: 
+    # F: for MLO if the breast is on the left, it is right oriented.  
     assert horizontal_flip in ['YES', 'NO'], "Wrong horizontal flip"
     assert side in ['L', 'R'], "Wrong side"
     if horizontal_flip == 'YES':
@@ -286,6 +297,8 @@ def crop_mammogram(input_data_folder, exam_list_path, cropped_exam_list_path, ou
     )
     with Pool(num_processes) as pool:
         cropped_image_info = pool.map(crop_mammogram_one_image_func, image_list)
+    # F: cropped image info returns a list. Each entry is the return of a single execution
+    # F: of crop_mammogram_one_image_func.
     
     window_location_dict = dict([x[0] for x in cropped_image_info])
     rightmost_points_dict = dict([x[1] for x in cropped_image_info])
@@ -312,9 +325,12 @@ def crop_mammogram_one_image(scan, input_data_folder, output_data_folder, num_it
     """
     full_file_path = os.path.join(input_data_folder, scan['short_file_path']+'.png')
     image = reading_images.read_image_png(full_file_path)
+
+
+
+    # F: if try clause executes without errors, else clause is executed. 
+    # F: try-except-else is to have some code that gets executes before finally clause if try succeeds.
     try:
-        print(image_orientation(scan['horizontal_flip'], scan['side']))
-        exit()
         # error detection using erosion. Also get cropping information for this image.
         cropping_info = crop_img_from_largest_connected(
             image, 
@@ -327,20 +343,23 @@ def crop_mammogram_one_image(scan, input_data_folder, output_data_folder, num_it
     except Exception as error:
         print(full_file_path, "\n\tFailed to crop image because image is invalid.", str(error))
     else:
+        # F: each entry of cropping_info associated with scan['short_file_path']
         success_image_info = list(zip([scan['short_file_path']]*4, cropping_info))
         
         top, bottom, left, right = cropping_info[0]
         
+        # F: defines output folder
         full_target_file_path = os.path.join(output_data_folder, scan['short_file_path']+'.png')
         target_parent_dir = os.path.split(full_target_file_path)[0]
         if not os.path.exists(target_parent_dir):
             os.makedirs(target_parent_dir)
         
         try:
+            # F: saves the cropped image!
             saving_images.save_image_as_png(image[top:bottom, left:right], full_target_file_path)
         except Exception as error:
             print(full_file_path, "\n\tError while saving image.", str(error))
-        
+
         return success_image_info
 
 

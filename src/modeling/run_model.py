@@ -85,14 +85,17 @@ def run_model(model, exam_list, parameters):
 
                     loaded_image_dict[view].append(loaded_image)
                     loaded_heatmaps_dict[view].append(loaded_heatmaps)
+            print(f"length loaded_image: {len(loaded_image_dict)}")
             for data_batch in tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"]):
+                print(f"num_epochs: {parameters['num_epochs']}")
+                print(f"batch_size: {parameters['batch_size']}")
                 tmp = tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"])
                 print(f"partition_batch: {tmp}")
-                exit()
                 batch_dict = {view: [] for view in VIEWS.LIST}
                 for _ in data_batch:
                     for view in VIEWS.LIST:
                         image_index = 0
+                        # F: they use different augmentation for each view
                         if parameters["augmentation"]:
                             image_index = random_number_generator.randint(low=0, high=len(datum[view]))
                         cropped_image, cropped_heatmaps = loading.augment_and_normalize_image(
@@ -105,24 +108,50 @@ def run_model(model, exam_list, parameters):
                             max_crop_noise=parameters["max_crop_noise"],
                             max_crop_size_noise=parameters["max_crop_size_noise"],
                         )
+                        # print(f"cropped_image: {image_index} of m in minibatch: {_} size: {cropped_image.shape}")
+
+
                         if loaded_heatmaps_dict[view][image_index] is None:
                             batch_dict[view].append(cropped_image[:, :, np.newaxis])
+                            # F: e.g. batch_dict[view][_].shape = (2974, 1748, 1)
+
                         else:
+                            # F: e.g. batch_dict[view][:,:,1] is the first heatmap 
                             batch_dict[view].append(np.concatenate([
                                 cropped_image[:, :, np.newaxis],
                                 cropped_heatmaps,
                             ], axis=2))
 
+                        # print(f"batch_dict_view: {len(batch_dict[view])}")
+                        # print(f"batch_img_size: {batch_dict[view][_].shape}")
+
+
                 tensor_batch = {
+                    # F: result of np.stack has one more dimension:
+                    # F: 4 dimensions: batch_data_i, y_pixels, x_pixels, channels 
                     view: torch.tensor(np.stack(batch_dict[view])).permute(0, 3, 1, 2).to(device)
                     for view in VIEWS.LIST
                 }
+
+
+                # print(f"layer_names: {model.state_dict().keys()}")
+                # Print model's state_dict
+                print("Model's state_dict:")
+                for param_tensor in model.state_dict():
+                    print(param_tensor, "\t", model.state_dict()[param_tensor].size())
                 output = model(tensor_batch)
                 batch_predictions = compute_batch_predictions(output)
+                print(f"batch_predictions: \n {batch_predictions}")
+                print(len(batch_predictions.keys()))
+                # F: they pick value 1, disregarding value 0 which is the complement of that (prob = 1) 
                 pred_df = pd.DataFrame({k: v[:, 1] for k, v in batch_predictions.items()})
                 pred_df.columns.names = ["label", "view_angle"]
+                # print(f"pred_df.head: {pred_df.head()}")
+                # F: complicated way of grouping by label and calculating the mean                
                 predictions = pred_df.T.reset_index().groupby("label").mean().T[LABELS.LIST].values
                 predictions_for_datum.append(predictions)
+                print(f"predictions: {predictions}")
+                exit()
             predictions_ls.append(np.mean(np.concatenate(predictions_for_datum, axis=0), axis=0))
 
     return np.array(predictions_ls) 
@@ -133,8 +162,7 @@ def compute_batch_predictions(y_hat):
     Format predictions from different heads
     """
     batch_prediction_dict = col.OrderedDict([
-        ((label_name, view_angle),
-         np.exp(y_hat[view_angle][:, i].cpu().detach().numpy()))
+        ( (label_name, view_angle), np.exp(y_hat[view_angle][:, i].cpu().detach().numpy()) )
         for i, label_name in enumerate(LABELS.LIST)
         for view_angle in VIEWANGLES.LIST
     ])
@@ -151,7 +179,9 @@ def load_run_save(model_path, data_path, output_path, parameters):
     exam_list = pickling.unpickle_from_file(data_path)
     predictions = run_model(model, exam_list, parameters)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
     # Take the positive prediction
+    # F: actually we took it already
     df = pd.DataFrame(predictions, columns=LABELS.LIST)
     df.to_csv(output_path, index=False, float_format='%.4f')
 
@@ -189,7 +219,7 @@ def main():
     }
 
     exam_list = pickling.unpickle_from_file(args.data_path)
-    print(exam_list[0])
+    # print(exam_list[0])
     # exit()
 
     load_run_save(

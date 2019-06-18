@@ -34,6 +34,7 @@ from src.constants import VIEWS
 class OutputLayer(nn.Module):
     def __init__(self, in_features, output_shape):
         super(OutputLayer, self).__init__()
+        # F: if output_shape is not a list nor tuple, make it a list
         if not isinstance(output_shape, (list, tuple)):
             output_shape = [output_shape]
         self.output_shape = output_shape
@@ -42,9 +43,13 @@ class OutputLayer(nn.Module):
 
     def forward(self, x):
         h = self.fc_layer(x)
+        print (f"before h.shape: {h.shape}")
         if len(self.output_shape) > 1:
             h = h.view(h.shape[0], *self.output_shape)
+        print (f"after h.shape: {h.shape}")
+
         h = F.log_softmax(h, dim=-1)
+        print (f"after log_softmax h.shape: {h.shape}")
         return h
 
 
@@ -59,11 +64,12 @@ class BasicBlockV2(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
         self.bn1 = nn.BatchNorm2d(inplanes)
+        # F: by default a dilation = 1 (padding 1 on each side)
         self.conv1 = conv3x3(inplanes, planes, stride=stride)
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv2 = conv3x3(planes, planes, stride=1)
-
         self.downsample = downsample
+
         self.stride = stride
 
     def forward(self, x):
@@ -120,8 +126,12 @@ class AllViewsAvgPool(nn.Module):
             for view_name, view_tensor in x.items()
         }
 
+    # F: staticmethod is a way of organizing your code. 
+    # F: Its a function which doesn't need any information from an instance of the class,
+    # F: but still it is logically bound to the class
     @staticmethod
     def _avg_pool(single_view):
+        # F: for each entry of batch, n, and channel, c, an average of all the elements.
         n, c, _, _ = single_view.size()
         return single_view.view(n, c, -1).mean(-1)
 

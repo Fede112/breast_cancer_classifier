@@ -20,20 +20,20 @@ IMAGE_PREDICTIONS_PATH='sample_output/image_predictions.csv'
 IMAGEHEATMAPS_PREDICTIONS_PATH='sample_output/imageheatmaps_predictions.csv'
 export PYTHONPATH=$(pwd):$PYTHONPATH
 
-# echo 'Stage 1: Crop Mammograms'
-# python3 src/cropping/crop_mammogram.py \
-#     --input-data-folder $DATA_FOLDER \
-#     --output-data-folder $CROPPED_IMAGE_PATH \
-#     --exam-list-path $INITIAL_EXAM_LIST_PATH  \
-#     --cropped-exam-list-path $CROPPED_EXAM_LIST_PATH  \
-#     --num-processes $NUM_PROCESSES
+echo 'Stage 1: Crop Mammograms'
+python3 src/cropping/crop_mammogram.py \
+    --input-data-folder $DATA_FOLDER \
+    --output-data-folder $CROPPED_IMAGE_PATH \
+    --exam-list-path $INITIAL_EXAM_LIST_PATH  \
+    --cropped-exam-list-path $CROPPED_EXAM_LIST_PATH  \
+    --num-processes $NUM_PROCESSES
 
-# echo 'Stage 2: Extract Centers'
-# python3 src/optimal_centers/get_optimal_centers.py \
-#     --cropped-exam-list-path $CROPPED_EXAM_LIST_PATH \
-#     --data-prefix $CROPPED_IMAGE_PATH \
-#     --output-exam-list-path $EXAM_LIST_PATH \
-#     --num-processes $NUM_PROCESSES
+echo 'Stage 2: Extract Centers'
+python3 src/optimal_centers/get_optimal_centers.py \
+    --cropped-exam-list-path $CROPPED_EXAM_LIST_PATH \
+    --data-prefix $CROPPED_IMAGE_PATH \
+    --output-exam-list-path $EXAM_LIST_PATH \
+    --num-processes $NUM_PROCESSES
 
 # echo 'Stage 3: Generate Heatmaps'
 # python3 src/heatmaps/run_producer.py \

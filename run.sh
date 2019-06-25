@@ -1,9 +1,7 @@
 #!/bin/bash
 
-NUM_PROCESSES=1
-# NUM_PROCESSES=10
+NUM_PROCESSES=10
 DEVICE_TYPE='cpu'
-# NUM_EPOCHS=1
 NUM_EPOCHS=10
 HEATMAP_BATCH_SIZE=100
 GPU_NUMBER=0
@@ -30,12 +28,12 @@ python3 src/cropping/crop_mammogram.py \
     --cropped-exam-list-path $CROPPED_EXAM_LIST_PATH  \
     --num-processes $NUM_PROCESSES
 
-# echo 'Stage 2: Extract Centers'
-# python3 src/optimal_centers/get_optimal_centers.py \
-#     --cropped-exam-list-path $CROPPED_EXAM_LIST_PATH \
-#     --data-prefix $CROPPED_IMAGE_PATH \
-#     --output-exam-list-path $EXAM_LIST_PATH \
-#     --num-processes $NUM_PROCESSES
+echo 'Stage 2: Extract Centers'
+python3 src/optimal_centers/get_optimal_centers.py \
+    --cropped-exam-list-path $CROPPED_EXAM_LIST_PATH \
+    --data-prefix $CROPPED_IMAGE_PATH \
+    --output-exam-list-path $EXAM_LIST_PATH \
+    --num-processes $NUM_PROCESSES
 
 # echo 'Stage 3: Generate Heatmaps'
 # python3 src/heatmaps/run_producer.py \
@@ -47,6 +45,10 @@ python3 src/cropping/crop_mammogram.py \
 #     --device-type $DEVICE_TYPE \
 #     --gpu-number $GPU_NUMBER
 
+
+# F: --model-path: sample_image_model.p:
+# F: --data-path: output-exam-list-path after extracting centers:
+# F: --output-path: image prediction as csv:
 echo 'Stage 4a: Run Classifier (Image)'
 python3 src/modeling/run_model.py \
     --model-path $IMAGE_MODEL_PATH \
@@ -56,7 +58,8 @@ python3 src/modeling/run_model.py \
     --use-augmentation \
     --num-epochs $NUM_EPOCHS \
     --device-type $DEVICE_TYPE \
-    --gpu-number $GPU_NUMBER
+    --gpu-number $GPU_NUMBER \
+    --batch-size 2
 
 # echo 'Stage 4b: Run Classifier (Image+Heatmaps)'
 # python3 src/modeling/run_model.py \

@@ -44,6 +44,7 @@ class SplitBreastModel(nn.Module):
         self.output_layer_cc = layers.OutputLayer(256 * 2, (4, 2))
         self.output_layer_mlo = layers.OutputLayer(256 * 2, (4, 2))
 
+        # F: Average of the output of each ResNet column
         self.all_views_avg_pool = layers.AllViewsAvgPool()
         self.all_views_pad = layers.AllViewsPad()
         self.all_views_gaussian_noise_layer = layers.AllViewsGaussianNoise(0.01)
@@ -51,7 +52,10 @@ class SplitBreastModel(nn.Module):
     def forward(self, x):
         h = self.all_views_gaussian_noise_layer(x)
         result = self.four_view_resnet(h)
+
+        print(f"before avg_pool shape: {result[VIEWS.L_CC].shape}")
         h = self.all_views_avg_pool(result)
+        print(f"avg_pool shape: {h[VIEWS.L_CC].shape}")
 
         # Pool, flatten, and fully connected layers
         h_cc = torch.cat([h[VIEWS.L_CC], h[VIEWS.R_CC]], dim=1)
@@ -60,6 +64,9 @@ class SplitBreastModel(nn.Module):
         h_cc = F.relu(self.fc1_cc(h_cc))
         h_mlo = F.relu(self.fc1_mlo(h_mlo))
 
+
+        print(f"input outputlayer shape: {h_cc.shape}")
+
         h_cc = self.output_layer_cc(h_cc)
         h_mlo = self.output_layer_mlo(h_mlo)
 
@@ -67,6 +74,10 @@ class SplitBreastModel(nn.Module):
             VIEWANGLES.CC: h_cc,
             VIEWANGLES.MLO: h_mlo,
         }
+        
+
+        print(f"outputlayer shape CC: {h_cc.shape}")
+        print(f"outputlayer shape MLO: {h_mlo.shape}")
 
         return h
 
@@ -129,6 +140,8 @@ class ViewResNetV2(nn.Module):
                  first_pool_size=None, first_pool_stride=None, first_pool_padding=0,
                  growth_factor=2):
         super(ViewResNetV2, self).__init__()
+
+        # First Layers
         self.first_conv = nn.Conv2d(
             in_channels=input_channels, out_channels=num_filters,
             kernel_size=first_layer_kernel_size,
@@ -142,6 +155,8 @@ class ViewResNetV2(nn.Module):
             padding=first_pool_padding,
         )
 
+
+        # Resnet Layers
         self.layer_list = nn.ModuleList()
         current_num_filters = num_filters
         self.inplanes = num_filters
@@ -153,7 +168,11 @@ class ViewResNetV2(nn.Module):
                 blocks=num_blocks,
                 stride=stride,
             ))
+            # F: growth_factor are predifined and the same for all layers
             current_num_filters *= growth_factor
+
+
+        # Final Layer
         self.final_bn = nn.BatchNorm2d(
             current_num_filters // growth_factor * block_fn.expansion
         )
@@ -173,12 +192,16 @@ class ViewResNetV2(nn.Module):
         h = self.relu(h)
         return h
 
+    # F: type of block, number of feature maps, number of blocks, stride of the first block of the layer
+    # F: this stride decides if the layer reduces the area or not.
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = nn.Sequential(
             nn.Conv2d(self.inplanes, planes * block.expansion,
                       kernel_size=1, stride=stride, bias=False),
         )
 
+        # F: first block in layer is call with downsampling, second one is
+        # F: regular Resnet block: residual = x
         layers_ = [
             block(self.inplanes, planes, stride, downsample)
         ]

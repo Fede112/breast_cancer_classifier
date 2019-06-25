@@ -37,10 +37,10 @@ import src.utilities.data_handling as data_handling
 
 
 
-### My own additions ###
+###### My own additions ###############
 import sys
-from matplotlib import pyplot as plt
-import multiprocessing
+# from matplotlib import pyplot as plt
+
 
 def get_masks_and_sizes_of_connected_components(img_mask):
     """
@@ -65,6 +65,7 @@ def get_mask_of_largest_connected_component(img_mask):
     mask, mask_pixels_dict = get_masks_and_sizes_of_connected_components(img_mask)
     largest_mask_index = pd.Series(mask_pixels_dict).idxmax()
     largest_mask = mask == largest_mask_index
+    # F: full mask of largest component
     return largest_mask
 
 
@@ -73,8 +74,11 @@ def get_edge_values(img, largest_mask, axis):
     Finds the bounding box for the largest connected component
     """
     assert axis in ["x", "y"]
+    # returns True for rows, axis="y", or columns, axis="x", with non zero values
+    # F: the np.arange is the index array which is sliced by has_value and then pick first and last element
     has_value = np.any(largest_mask, axis=int(axis == "y"))
     edge_start = np.arange(img.shape[int(axis == "x")])[has_value][0]
+    # F: the plus one at the end maybe a source of error
     edge_end = np.arange(img.shape[int(axis == "x")])[has_value][-1] + 1
     return edge_start, edge_end
 
@@ -131,11 +135,9 @@ def convert_bottommost_pixels_wrt_cropped_image(mode, bottommost_nonzero_y, bott
     """
     bottommost_nonzero_y -= y_edge_top
     if mode == "left":
-        # print(f"mode: {mode}, bottom_x: {bottommost_nonzero_x}, bottom_y: {bottommost_nonzero_y}")
         bottommost_nonzero_x = x_edge_right - bottommost_nonzero_x  # in this case, not in sorted order anymore.
         bottommost_nonzero_x = np.flip(bottommost_nonzero_x, 0)
     else:
-        # print(f"mode: {mode}, bottom_x: {bottommost_nonzero_x}, bottom_y: {bottommost_nonzero_y}")
         bottommost_nonzero_x -= x_edge_left
     return bottommost_nonzero_y, bottommost_nonzero_x
 
@@ -178,9 +180,7 @@ def crop_img_from_largest_connected(img, mode, erode_dialate=True, iterations=10
            map can be cropped in the same way for training.
         - rightmost_points: rightmost nonzero pixels after correctly being flipped in the format of 
                             ((y_start, y_end), x)
-        - bottommost_poi
-
-nts: bottommost nonzero pixels after correctly being flipped in the format of
+        - bottommost_points: bottommost nonzero pixels after correctly being flipped in the format of
                              (y, (x_start, x_end))
         - distance_from_starting_side: number of zero columns between the start of the image and start of
            the largest connected component w.r.t. original dicom image.
@@ -203,19 +203,22 @@ nts: bottommost nonzero pixels after correctly being flipped in the format of
     # figure out where to crop
     y_edge_top, y_edge_bottom = get_edge_values(img, largest_mask, "y")
     x_edge_left, x_edge_right = get_edge_values(img, largest_mask, "x")
-    # print(f"y_edge_bottom: {y_edge_bottom} and y_edge_top: {y_edge_top}")
-    # print(f"x_edge_left: {x_edge_left} and x_edge_right: {x_edge_right}")
+
     # extract bottommost pixel info
+    # F: you have the y_edge_bottom but you are missing the x position of that pixel.
+    # F: bottomost_pixel = (bottommost_nonzero_x, bottommost_nonzero_y) = (bottommost_nonzero_x, y_edge_bottom-1)
     bottommost_nonzero_y, bottommost_nonzero_x = get_bottommost_pixels(img, largest_mask, y_edge_bottom)
 
     # include maximum 'buffer_size' more pixels on both sides just to make sure we don't miss anything
     y_edge_top, y_edge_bottom = include_buffer_y_axis(img, y_edge_top, y_edge_bottom, buffer_size)
     
     # If cropped image not starting from corresponding edge, they are wrong. Record the distance, will reject if not 0.
+    # F: they use some weird notation for mode: mode = image_orientation(). L-CC = right, R-CC = left
     distance_from_starting_side = get_distance_from_starting_side(img, mode, x_edge_left, x_edge_right)
 
     # include more pixels on either side just to make sure we don't miss anything, if the next column
     #   contains non-zero value and isn't noise
+    # F: it includes depending on mode: if left, it adds on the left. if right, it adds on the right.
     x_edge_left, x_edge_right = include_buffer_x_axis(img, mode, x_edge_left, x_edge_right, buffer_size)
 
     # convert bottommost pixel locations w.r.t. newly cropped image. Flip if necessary.
@@ -247,6 +250,8 @@ def image_orientation(horizontal_flip, side):
     Returns the direction where the breast should be facing in the original image
     This information is used in cropping.crop_img_horizontally_from_largest_connected
     """
+    # F: refers to breast orientation: 
+    # F: for MLO if the breast is on the left, it is right oriented.  
     assert horizontal_flip in ['YES', 'NO'], "Wrong horizontal flip"
     assert side in ['L', 'R'], "Wrong side"
     if horizontal_flip == 'YES':
@@ -267,10 +272,15 @@ def crop_mammogram(input_data_folder, exam_list_path, cropped_exam_list_path, ou
     In parallel, crops mammograms in DICOM format found in input_data_folder and save as png format in
     output_data_folder and saves new image list in cropped_image_list_path
     """
+
+    # list of exams (one dictionary per exam)
     exam_list = pickling.unpickle_from_file(exam_list_path)
     
+    # list per image (one dictionary per image). It contains same information than in list of exams + cropped information if present.
     image_list = data_handling.unpack_exam_into_images(exam_list)
     
+    print( image_list )
+
     if os.path.exists(output_data_folder):
         # Prevent overwriting to an existing directory
         print("Error: the directory to save cropped images already exists.")
@@ -287,6 +297,9 @@ def crop_mammogram(input_data_folder, exam_list_path, cropped_exam_list_path, ou
     )
     with Pool(num_processes) as pool:
         cropped_image_info = pool.map(crop_mammogram_one_image_func, image_list)
+    # F: cropped image info returns a list. Each entry is the return of a single execution
+    # F: of crop_mammogram_one_image_func.
+    
     window_location_dict = dict([x[0] for x in cropped_image_info])
     rightmost_points_dict = dict([x[1] for x in cropped_image_info])
     bottommost_points_dict = dict([x[2] for x in cropped_image_info])
@@ -313,6 +326,10 @@ def crop_mammogram_one_image(scan, input_data_folder, output_data_folder, num_it
     full_file_path = os.path.join(input_data_folder, scan['short_file_path']+'.png')
     image = reading_images.read_image_png(full_file_path)
 
+
+
+    # F: if try clause executes without errors, else clause is executed. 
+    # F: try-except-else is to have some code that gets executes before finally clause if try succeeds.
     try:
         # error detection using erosion. Also get cropping information for this image.
         cropping_info = crop_img_from_largest_connected(
@@ -326,22 +343,23 @@ def crop_mammogram_one_image(scan, input_data_folder, output_data_folder, num_it
     except Exception as error:
         print(full_file_path, "\n\tFailed to crop image because image is invalid.", str(error))
     else:
+        # F: each entry of cropping_info associated with scan['short_file_path']
         success_image_info = list(zip([scan['short_file_path']]*4, cropping_info))
         
         top, bottom, left, right = cropping_info[0]
         
+        # F: defines output folder
         full_target_file_path = os.path.join(output_data_folder, scan['short_file_path']+'.png')
         target_parent_dir = os.path.split(full_target_file_path)[0]
         if not os.path.exists(target_parent_dir):
             os.makedirs(target_parent_dir)
         
         try:
+            # F: saves the cropped image!
             saving_images.save_image_as_png(image[top:bottom, left:right], full_target_file_path)
         except Exception as error:
             print(full_file_path, "\n\tError while saving image.", str(error))
-        
 
-        print(success_image_info)
         return success_image_info
 
 

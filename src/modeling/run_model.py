@@ -82,6 +82,10 @@ def run_model(model, exam_list, parameters):
                     loaded_image_dict[view].append(loaded_image)
                     loaded_heatmaps_dict[view].append(loaded_heatmaps)
             for data_batch in tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"]):
+
+                print(f"data_batch: {list(data_batch)}")
+                print("aca!")
+                exit()
                 batch_dict = {view: [] for view in VIEWS.LIST}
                 for _ in data_batch:
                     for view in VIEWS.LIST:
@@ -165,6 +169,10 @@ def main():
     parser.add_argument('--device-type', default="cpu", choices=['gpu', 'cpu'])
     parser.add_argument("--gpu-number", type=int, default=0)
     args = parser.parse_args()
+
+    exam_list = pickling.unpickle_from_file(args.data_path)
+    print(len(exam_list))
+    print(exam_list)
 
     parameters = {
         "device_type": args.device_type,

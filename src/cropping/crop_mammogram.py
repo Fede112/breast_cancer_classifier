@@ -35,6 +35,13 @@ import src.utilities.saving_images as saving_images
 import src.utilities.data_handling as data_handling
 
 
+
+
+### My own additions ###
+import sys
+from matplotlib import pyplot as plt
+import multiprocessing
+
 def get_masks_and_sizes_of_connected_components(img_mask):
     """
     Finds the connected components from the mask of the image
@@ -124,9 +131,11 @@ def convert_bottommost_pixels_wrt_cropped_image(mode, bottommost_nonzero_y, bott
     """
     bottommost_nonzero_y -= y_edge_top
     if mode == "left":
+        # print(f"mode: {mode}, bottom_x: {bottommost_nonzero_x}, bottom_y: {bottommost_nonzero_y}")
         bottommost_nonzero_x = x_edge_right - bottommost_nonzero_x  # in this case, not in sorted order anymore.
         bottommost_nonzero_x = np.flip(bottommost_nonzero_x, 0)
     else:
+        # print(f"mode: {mode}, bottom_x: {bottommost_nonzero_x}, bottom_y: {bottommost_nonzero_y}")
         bottommost_nonzero_x -= x_edge_left
     return bottommost_nonzero_y, bottommost_nonzero_x
 
@@ -169,7 +178,9 @@ def crop_img_from_largest_connected(img, mode, erode_dialate=True, iterations=10
            map can be cropped in the same way for training.
         - rightmost_points: rightmost nonzero pixels after correctly being flipped in the format of 
                             ((y_start, y_end), x)
-        - bottommost_points: bottommost nonzero pixels after correctly being flipped in the format of
+        - bottommost_poi
+
+nts: bottommost nonzero pixels after correctly being flipped in the format of
                              (y, (x_start, x_end))
         - distance_from_starting_side: number of zero columns between the start of the image and start of
            the largest connected component w.r.t. original dicom image.
@@ -192,7 +203,8 @@ def crop_img_from_largest_connected(img, mode, erode_dialate=True, iterations=10
     # figure out where to crop
     y_edge_top, y_edge_bottom = get_edge_values(img, largest_mask, "y")
     x_edge_left, x_edge_right = get_edge_values(img, largest_mask, "x")
-
+    # print(f"y_edge_bottom: {y_edge_bottom} and y_edge_top: {y_edge_top}")
+    # print(f"x_edge_left: {x_edge_left} and x_edge_right: {x_edge_right}")
     # extract bottommost pixel info
     bottommost_nonzero_y, bottommost_nonzero_x = get_bottommost_pixels(img, largest_mask, y_edge_bottom)
 
@@ -275,7 +287,6 @@ def crop_mammogram(input_data_folder, exam_list_path, cropped_exam_list_path, ou
     )
     with Pool(num_processes) as pool:
         cropped_image_info = pool.map(crop_mammogram_one_image_func, image_list)
-    
     window_location_dict = dict([x[0] for x in cropped_image_info])
     rightmost_points_dict = dict([x[1] for x in cropped_image_info])
     bottommost_points_dict = dict([x[2] for x in cropped_image_info])
@@ -301,6 +312,7 @@ def crop_mammogram_one_image(scan, input_data_folder, output_data_folder, num_it
     """
     full_file_path = os.path.join(input_data_folder, scan['short_file_path']+'.png')
     image = reading_images.read_image_png(full_file_path)
+
     try:
         # error detection using erosion. Also get cropping information for this image.
         cropping_info = crop_img_from_largest_connected(
@@ -328,6 +340,8 @@ def crop_mammogram_one_image(scan, input_data_folder, output_data_folder, num_it
         except Exception as error:
             print(full_file_path, "\n\tError while saving image.", str(error))
         
+
+        print(success_image_info)
         return success_image_info
 
 

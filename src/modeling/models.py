@@ -53,9 +53,9 @@ class SplitBreastModel(nn.Module):
         h = self.all_views_gaussian_noise_layer(x)
         result = self.four_view_resnet(h)
 
-        print(f"before avg_pool shape: {result[VIEWS.L_CC].shape}")
+        # print(f"before avg_pool shape: {result[VIEWS.L_CC].shape}")
         h = self.all_views_avg_pool(result)
-        print(f"avg_pool shape: {h[VIEWS.L_CC].shape}")
+        # print(f"avg_pool shape: {h[VIEWS.L_CC].shape}")
 
         # Pool, flatten, and fully connected layers
         h_cc = torch.cat([h[VIEWS.L_CC], h[VIEWS.R_CC]], dim=1)
@@ -65,7 +65,7 @@ class SplitBreastModel(nn.Module):
         h_mlo = F.relu(self.fc1_mlo(h_mlo))
 
 
-        print(f"input outputlayer shape: {h_cc.shape}")
+        # print(f"input outputlayer shape: {h_cc.shape}")
 
         h_cc = self.output_layer_cc(h_cc)
         h_mlo = self.output_layer_mlo(h_mlo)
@@ -76,8 +76,8 @@ class SplitBreastModel(nn.Module):
         }
         
 
-        print(f"outputlayer shape CC: {h_cc.shape}")
-        print(f"outputlayer shape MLO: {h_mlo.shape}")
+        # print(f"outputlayer shape CC: {h_cc.shape}")
+        # print(f"outputlayer shape MLO: {h_mlo.shape}")
 
         return h
 

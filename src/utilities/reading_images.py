@@ -27,6 +27,10 @@ import numpy as np
 import imageio
 import h5py
 
+# Had to add this because images were too big
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 
 def read_image_png(file_name):
     image = np.array(imageio.imread(file_name))

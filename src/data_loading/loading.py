@@ -26,6 +26,7 @@ import src.data_loading.augmentations as augmentations
 from src.utilities.reading_images import read_image_mat, read_image_png
 
 
+
 def flip_image(image, view, horizontal_flip):
     """
     If training mode, makes all images face right direction.

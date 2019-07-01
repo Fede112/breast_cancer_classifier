@@ -27,7 +27,7 @@ python3 src/cropping/crop_mammogram.py \
     --exam-list-path $INITIAL_EXAM_LIST_PATH  \
     --cropped-exam-list-path $CROPPED_EXAM_LIST_PATH  \
     --num-processes $NUM_PROCESSES
-rm -r /u/f/fbarone/Documents/breast_cancer_classifier/sample_output/cropped_images
+# rm -r ./sample_output/cropped_images
 
 # echo 'Stage 2: Extract Centers'
 # python3 src/optimal_centers/get_optimal_centers.py \

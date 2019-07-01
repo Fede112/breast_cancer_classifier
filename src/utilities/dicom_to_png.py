@@ -1,4 +1,7 @@
 # packages: pip install pypng pydicom
+# sometimes you need gdcm to uncompress some specific dicom format:
+# conda install -c conda-forge gdcm 
+
 import png
 import pydicom
 

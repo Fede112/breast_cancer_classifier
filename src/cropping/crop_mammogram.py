@@ -36,12 +36,6 @@ import src.utilities.data_handling as data_handling
 
 
 
-
-###### My own additions ###############
-import sys
-# from matplotlib import pyplot as plt
-
-
 def get_masks_and_sizes_of_connected_components(img_mask):
     """
     Finds the connected components from the mask of the image
@@ -299,9 +293,8 @@ def crop_mammogram(input_data_folder, exam_list_path, cropped_exam_list_path, ou
     # F: cropped image info returns a list. Each entry is the return of a single execution
     # F: of crop_mammogram_one_image_func.
     
-    print(f"cropped_image_info: {cropped_image_info[0]}")
+    # F: each dict defined contains the information of all images
     window_location_dict = dict([x[0] for x in cropped_image_info])
-    print(window_location_dict)
     rightmost_points_dict = dict([x[1] for x in cropped_image_info])
     bottommost_points_dict = dict([x[2] for x in cropped_image_info])
     distance_from_starting_side_dict = dict([x[3] for x in cropped_image_info])
@@ -311,8 +304,6 @@ def crop_mammogram(input_data_folder, exam_list_path, cropped_exam_list_path, ou
     data_handling.add_metadata(exam_list, "bottommost_points", bottommost_points_dict)
     data_handling.add_metadata(exam_list, "distance_from_starting_side", distance_from_starting_side_dict)
     
-    print("")
-    print(exam_list)
     pickling.pickle_to_file(cropped_exam_list_path, exam_list)
     
 

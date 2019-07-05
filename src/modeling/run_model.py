@@ -59,7 +59,7 @@ def run_model(model, exam_list, parameters):
         predictions_ls = []
         for datum in tqdm.tqdm(exam_list):
             predictions_for_datum = []
-            # F: VIEWS is a adhoc class
+            # F: VIEWS is an adhoc class
             # F: VIEWS.LIST : list of views as string
             loaded_image_dict = {view: [] for view in VIEWS.LIST}
             loaded_heatmaps_dict = {view: [] for view in VIEWS.LIST}
@@ -85,12 +85,12 @@ def run_model(model, exam_list, parameters):
 
                     loaded_image_dict[view].append(loaded_image)
                     loaded_heatmaps_dict[view].append(loaded_heatmaps)
-            print(f"length loaded_image: {len(loaded_image_dict)}")
+            # print(f"length loaded_image: {len(loaded_image_dict)}")
             for data_batch in tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"]):
-                print(f"num_epochs: {parameters['num_epochs']}")
-                print(f"batch_size: {parameters['batch_size']}")
+                # print(f"num_epochs: {parameters['num_epochs']}")
+                # print(f"batch_size: {parameters['batch_size']}")
                 tmp = tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"])
-                print(f"partition_batch: {tmp}")
+                # print(f"partition_batch: {tmp}")
                 batch_dict = {view: [] for view in VIEWS.LIST}
                 for _ in data_batch:
                     for view in VIEWS.LIST:
@@ -136,13 +136,13 @@ def run_model(model, exam_list, parameters):
 
                 # print(f"layer_names: {model.state_dict().keys()}")
                 # Print model's state_dict
-                print("Model's state_dict:")
-                for param_tensor in model.state_dict():
-                    print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+                # print("Model's state_dict:")
+                # for param_tensor in model.state_dict():
+                    # print(param_tensor, "\t", model.state_dict()[param_tensor].size())
                 output = model(tensor_batch)
                 batch_predictions = compute_batch_predictions(output)
-                print(f"batch_predictions: \n {batch_predictions}")
-                print(len(batch_predictions.keys()))
+                # print(f"batch_predictions: \n {batch_predictions}")
+                # print(len(batch_predictions.keys()))
                 # F: they pick value 1, disregarding value 0 which is the complement of that (prob = 1) 
                 pred_df = pd.DataFrame({k: v[:, 1] for k, v in batch_predictions.items()})
                 pred_df.columns.names = ["label", "view_angle"]
@@ -150,8 +150,7 @@ def run_model(model, exam_list, parameters):
                 # F: complicated way of grouping by label and calculating the mean                
                 predictions = pred_df.T.reset_index().groupby("label").mean().T[LABELS.LIST].values
                 predictions_for_datum.append(predictions)
-                print(f"predictions: {predictions}")
-                exit()
+                # print(f"predictions: {predictions}")
             predictions_ls.append(np.mean(np.concatenate(predictions_for_datum, axis=0), axis=0))
 
     return np.array(predictions_ls) 
@@ -219,8 +218,6 @@ def main():
     }
 
     exam_list = pickling.unpickle_from_file(args.data_path)
-    # print(exam_list[0])
-    # exit()
 
     load_run_save(
         model_path=args.model_path,

@@ -43,13 +43,13 @@ class OutputLayer(nn.Module):
 
     def forward(self, x):
         h = self.fc_layer(x)
-        print (f"before h.shape: {h.shape}")
+        # print (f"before h.shape: {h.shape}")
         if len(self.output_shape) > 1:
             h = h.view(h.shape[0], *self.output_shape)
-        print (f"after h.shape: {h.shape}")
+        # print (f"after h.shape: {h.shape}")
 
         h = F.log_softmax(h, dim=-1)
-        print (f"after log_softmax h.shape: {h.shape}")
+        # print (f"after log_softmax h.shape: {h.shape}")
         return h
 
 

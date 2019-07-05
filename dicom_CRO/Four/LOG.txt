@@ -1,0 +1,2 @@
+Downloaded at 2019-07-01T16:06:41.526Z from 3c9293c1-368c-4025-8885-dd0d3b896609/1.2.826.0.1.3680043.2.619.9.1.16.823952037.3041
+bundle = dicom, includeDicoms = true, includeReports = true, transcodeSD = false, transcodeHD = false, transcodeDiagnostic = false

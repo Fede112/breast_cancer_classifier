@@ -282,7 +282,7 @@ def crop_mammogram(input_data_folder, exam_list_path, cropped_exam_list_path, ou
         os.makedirs(output_data_folder)
 
     crop_mammogram_one_image_func = partial(
-        crop_mammogram_one_image, 
+        crop_mammogram_one_image_short_path,
         input_data_folder=input_data_folder, 
         output_data_folder=output_data_folder,
         num_iterations=num_iterations,
@@ -307,7 +307,7 @@ def crop_mammogram(input_data_folder, exam_list_path, cropped_exam_list_path, ou
     pickling.pickle_to_file(cropped_exam_list_path, exam_list)
     
 
-def crop_mammogram_one_image(scan, input_data_folder, output_data_folder, num_iterations, buffer_size):
+def crop_mammogram_one_image(scan, input_file_path, output_file_path, num_iterations, buffer_size):
     """
     Crops a mammogram, saves as png file, includes the following additional information:
         - window_location: location of cropping window w.r.t. original dicom image so that segmentation
@@ -324,6 +324,7 @@ def crop_mammogram_one_image(scan, input_data_folder, output_data_folder, num_it
 
     # F: if try clause executes without errors, else clause is executed. 
     # F: try-except-else is to have some code that gets executes before finally clause if try succeeds.
+
     try:
         # error detection using erosion. Also get cropping information for this image.
         cropping_info = crop_img_from_largest_connected(
@@ -335,7 +336,7 @@ def crop_mammogram_one_image(scan, input_data_folder, output_data_folder, num_it
             1/3
         )
     except Exception as error:
-        print(full_file_path, "\n\tFailed to crop image because image is invalid.", str(error))
+        print(input_file_path, "\n\tFailed to crop image because image is invalid.", str(error))
     else:
         # F: each entry of cropping_info associated with scan['short_file_path']
         success_image_info = list(zip([scan['short_file_path']]*4, cropping_info))
@@ -352,11 +353,30 @@ def crop_mammogram_one_image(scan, input_data_folder, output_data_folder, num_it
         
         try:
             # F: saves the cropped image!
-            saving_images.save_image_as_png(image[top:bottom, left:right], full_target_file_path)
+            saving_images.save_image_as_png(image[top:bottom, left:right], output_file_path)
         except Exception as error:
-            print(full_file_path, "\n\tError while saving image.", str(error))
+            print(input_file_path, "\n\tError while saving image.", str(error))
 
-        return success_image_info
+        return cropping_info
+
+
+def crop_mammogram_one_image_short_path(scan, input_data_folder, output_data_folder,
+                                        num_iterations, buffer_size):
+    """
+    Crops a mammogram from a short_file_path
+
+    See: crop_mammogram_one_image
+    """
+    full_input_file_path = os.path.join(input_data_folder, scan['short_file_path']+'.png')
+    full_output_file_path = os.path.join(output_data_folder, scan['short_file_path'] + '.png')
+    cropping_info = crop_mammogram_one_image(
+        scan=scan,
+        input_file_path=full_input_file_path,
+        output_file_path=full_output_file_path,
+        num_iterations=num_iterations,
+        buffer_size=buffer_size,
+    )
+    return list(zip([scan['short_file_path']] * 4, cropping_info))
 
 
 if __name__ == "__main__":

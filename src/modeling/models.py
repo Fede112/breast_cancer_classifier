@@ -147,6 +147,7 @@ class SingleImageBreastModel(nn.Module):
     def load_state_from_shared_weights(self, state_dict, view):
         view_angle = view.lower().split("-")[-1]
         view_key = view.lower().replace("-", "")
+        print(filter_strip_prefix(state_dict, "four_view_resnet.{}.".format(view_angle)))
         self.view_resnet.load_state_dict(
             filter_strip_prefix(state_dict, "four_view_resnet.{}.".format(view_angle))
         )

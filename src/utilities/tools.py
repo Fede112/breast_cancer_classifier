@@ -35,3 +35,13 @@ def partition_batch(ls, size):
         partitioned_lists.append(ls[i: i+size])
         i += size
     return partitioned_lists
+
+
+def get_activation(layer_dict, name):
+    """
+    Define hook to extract intermediate layer features
+    """
+    def hook(model, input, output):
+        # layer_dict[name].append(output.detach())
+        layer_dict[name].append(output.detach())
+    return hook

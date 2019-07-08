@@ -65,6 +65,7 @@ def main():
     parser.add_argument('--buffer-size', default=50, type=int)
     args = parser.parse_args()
 
+
     crop_single_mammogram(
         mammogram_path=args.mammogram_path,
         view=args.view,

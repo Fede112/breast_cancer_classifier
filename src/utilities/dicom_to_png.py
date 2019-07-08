@@ -96,10 +96,12 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
                 label = exam_id + '_' + laterality + '_' + view_angle
                 exam_dict[view].append(label)
 
+
                 # Generate pngs
                 if generate_png:
                     full_png_path = os.path.join(images_dir, label + '.png')
                     image = ds.pixel_array
+
                     # try:
                     #     # F: saves the cropped image!
                     #     saving_images.save_image_as_png(image, full_png_path)
@@ -143,4 +145,4 @@ def get_dicom_files(dir_name):
 
 
 if __name__ == "__main__":
-    cro_dicom_scrapper("./dicom_CRO/", "./sample_data_CRO/", 12, True)
+    cro_dicom_scrapper("./dicom_CRO/", "./sample_data_CRO_test/", 12, False)

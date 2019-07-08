@@ -133,13 +133,15 @@ class SingleImageBreastModel(nn.Module):
         self.fc1 = nn.Linear(256, 256)
         self.output_layer = layers.OutputLayer(256, (2, 2))
 
-        self.all_views_avg_pool = layers.AllViewsAvgPool()
+        # self.all_views_avg_pool = layers.AllViewsAvgPool()
+        self.all_views_avg_pool = layers.SingleViewAvgPool()
         self.all_views_gaussian_noise_layer = layers.AllViewsGaussianNoise(0.01)
 
     def forward(self, x):
         h = self.all_views_gaussian_noise_layer.single_add_gaussian_noise(x)
         result = self.view_resnet(h)
-        h = self.all_views_avg_pool.single_avg_pool(result)
+        # h = self.all_views_avg_pool.single_avg_pool(result)
+        h = self.all_views_avg_pool(result)
         h = F.relu(self.fc1(h))
         h = self.output_layer(h)[:2]
         return h
@@ -147,13 +149,18 @@ class SingleImageBreastModel(nn.Module):
     def load_state_from_shared_weights(self, state_dict, view):
         view_angle = view.lower().split("-")[-1]
         view_key = view.lower().replace("-", "")
-        print(filter_strip_prefix(state_dict, "four_view_resnet.{}.".format(view_angle)))
+
+
         self.view_resnet.load_state_dict(
             filter_strip_prefix(state_dict, "four_view_resnet.{}.".format(view_angle))
         )
+
         self.fc1.load_state_dict(
             filter_strip_prefix(state_dict, "fc1_{}.".format(view_key))
         )
+
+        print(self.state_dict().keys())
+
         self.output_layer.load_state_dict({
             "fc_layer.weight": state_dict["output_layer_{}.fc_layer.weight".format(view_key)][:4],
             "fc_layer.bias": state_dict["output_layer_{}.fc_layer.bias".format(view_key)][:4],
@@ -266,6 +273,7 @@ class ViewResNetV2(nn.Module):
         return nn.Sequential(*layers_)
 
 
+
 def resnet22(input_channels):
     return ViewResNetV2(
         input_channels=input_channels,
@@ -289,3 +297,6 @@ def filter_strip_prefix(weights_dict, prefix):
         for k, v in weights_dict.items()
         if k.startswith(prefix)
     }
+
+
+

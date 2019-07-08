@@ -133,3 +133,13 @@ class AllViewsAvgPool(nn.Module):
         # F: for each entry of batch, n, and channel, c, an average of all the elements.
         n, c, _, _ = single_view.size()
         return single_view.view(n, c, -1).mean(-1)
+
+
+class SingleViewAvgPool(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        n, c, _, _ = x.size()
+        return x.view(n, c, -1).mean(-1)
+

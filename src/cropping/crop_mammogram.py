@@ -317,14 +317,11 @@ def crop_mammogram_one_image(scan, input_file_path, output_file_path, num_iterat
         - distance_from_starting_side: number of zero columns between the start of the image and start of
            the largest connected component w.r.t. original dicom image.
     """
-    full_file_path = os.path.join(input_data_folder, scan['short_file_path']+'.png')
-    image = reading_images.read_image_png(full_file_path)
 
-
+    image = reading_images.read_image_png(input_file_path)
 
     # F: if try clause executes without errors, else clause is executed. 
     # F: try-except-else is to have some code that gets executes before finally clause if try succeeds.
-
     try:
         # error detection using erosion. Also get cropping information for this image.
         cropping_info = crop_img_from_largest_connected(
@@ -338,26 +335,20 @@ def crop_mammogram_one_image(scan, input_file_path, output_file_path, num_iterat
     except Exception as error:
         print(input_file_path, "\n\tFailed to crop image because image is invalid.", str(error))
     else:
-        # F: each entry of cropping_info associated with scan['short_file_path']
-        success_image_info = list(zip([scan['short_file_path']]*4, cropping_info))
-        # print(success_image_info)
-
-
-        top, bottom, left, right = cropping_info[0]
         
-        # F: defines output folder
-        full_target_file_path = os.path.join(output_data_folder, scan['short_file_path']+'.png')
-        target_parent_dir = os.path.split(full_target_file_path)[0]
+        top, bottom, left, right = cropping_info[0]
+
+        target_parent_dir = os.path.split(output_file_path)[0]
         if not os.path.exists(target_parent_dir):
             os.makedirs(target_parent_dir)
         
         try:
-            # F: saves the cropped image!
             saving_images.save_image_as_png(image[top:bottom, left:right], output_file_path)
         except Exception as error:
             print(input_file_path, "\n\tError while saving image.", str(error))
 
         return cropping_info
+
 
 
 def crop_mammogram_one_image_short_path(scan, input_data_folder, output_data_folder,
@@ -389,6 +380,7 @@ if __name__ == "__main__":
     parser.add_argument('--num-iterations', default=100, type=int)
     parser.add_argument('--buffer-size', default=50, type=int)
     args = parser.parse_args()
+    
     
     crop_mammogram(
         input_data_folder=args.input_data_folder, 

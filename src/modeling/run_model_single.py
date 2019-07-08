@@ -136,6 +136,19 @@ def run(parameters):
     assert model_input.metadata["full_view"] == parameters["view"]
 
     all_predictions = []
+
+
+    # set up hook
+    
+    activation = {'out_resnet': []}
+    # out_shape = [0,256]
+    # activation = {'out_resnet': torch.empty(out_shape)}
+    handle = model.all_views_avg_pool.register_forward_hook(tools.get_activation(activation, 'out_resnet'))
+    # handle = model.view_resnet.layer_list[4][1].conv2.register_forward_hook(tools.get_activation(activation, 'out_resnet'))
+
+
+
+
     for data_batch in tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"]):
         batch = []
         for _ in data_batch:
@@ -144,6 +157,7 @@ def run(parameters):
                 random_number_generator=random_number_generator,
                 parameters=parameters,
             ))
+
         tensor_batch = batch_to_tensor(batch, device)
         y_hat = model(tensor_batch)
         predictions = np.exp(y_hat.cpu().detach().numpy())[:, :2, 1]
@@ -154,6 +168,8 @@ def run(parameters):
         "malignant": float(agg_predictions[1]),
     }
     print(json.dumps(predictions_dict))
+
+    # print(activation['out_resnet'][0].shape)
 
 
 def main():

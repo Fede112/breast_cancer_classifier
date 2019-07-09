@@ -112,6 +112,7 @@ def run_model(model, device, exam_list, parameters):
                         # F: they use different augmentation for each view
                         if parameters["augmentation"]:
                             image_index = random_number_generator.randint(low=0, high=len(datum[view]))
+                        
                         cropped_image, cropped_heatmaps = loading.augment_and_normalize_image(
                             image=loaded_image_dict[view][image_index],
                             auxiliary_image=loaded_heatmaps_dict[view][image_index],

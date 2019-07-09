@@ -8,6 +8,8 @@
 import png
 import pydicom
 import os
+import argparse
+
 
 
 import sys
@@ -15,10 +17,10 @@ import sys
 ####
 ## Temporary addition to find src file (if called from bash: export PYTHONPATH=$(pwd):$PYTHONPATH)
 current_dir = os.path.dirname(os.path.abspath(__file__))
-print(sys.path)
+# print(sys.path)
 # appending parent dir of current_dir to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-print(sys.path)
+# print(sys.path)
 ####
 
 import src.utilities.pickling as pickling
@@ -65,10 +67,14 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
 
     list_of_files = os.listdir(input_directory) # other alternative was os.walk
     
+    # List of directories that couldn't be open
+    error_dirs = []
+
     # We create an exam_list compatible with the NYU's 2019 algorithm
     exam_list = []
     print(list_of_files)
     for entry in list_of_files:
+        print (f'entry: {entry}')
         full_path = os.path.join(input_directory, entry)
         if os.path.isdir(full_path):
             exam_dcm_paths = get_dicom_files(full_path)
@@ -85,12 +91,26 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
                 if exam_id == '':
                     exam_id = ds.StudyID
                 else:
-                    assert exam_id == ds.StudyID, "Exam id is not the same for all dcm images in the specified folder."
+                    assert exam_id == ds.StudyID, "Exam id is not the same for all dcm images in folder " + entry
                 # Check horizontal_flip for all dcm
                 if not exam_dict['horizontal_flip']:
                     exam_dict['horizontal_flip'] = horizontal_flip
                 else:
-                    assert exam_dict['horizontal_flip'] == horizontal_flip , "Horizontal flip is not the same for every image in exam."
+                    assert exam_dict['horizontal_flip'] == horizontal_flip , "Horizontal flip is not the same for every image in exam " + entry
+
+                
+                # Check if laterality and view_angle are as expected
+                if laterality not in ['L', 'R']:
+                    print(f'laterality: {laterality}')
+                    print(f'exam_id: {exam_id}')
+                    error_dirs.append(exam_id)
+                    break
+                if view_angle not in ['CC', 'MLO']:
+                    error_dirs.append(exam_id)
+                    print(f'view_angle: {view_angle}')
+                    print(f'exam_id: {exam_id}')
+                    break
+                print("qui")
 
                 view = laterality + '-' + view_angle
                 label = exam_id + '_' + laterality + '_' + view_angle
@@ -117,8 +137,9 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
         # print(f"exam_list: \n {exam_list}")
         exam_list_path = os.path.join(output_directory, 'exam_list_before_cropping.pkl')
         pickling.pickle_to_file(exam_list_path, exam_list)
-
-        
+    error_dirs = set(error_dirs)
+    print(f'Folder with error in Dicom images: \n {error_dirs}')
+    
 
 
 def get_dicom_files(dir_name):
@@ -145,4 +166,10 @@ def get_dicom_files(dir_name):
 
 
 if __name__ == "__main__":
-    cro_dicom_scrapper("./dicom_CRO/", "./sample_data_CRO_test/", 12, False)
+    parser = argparse.ArgumentParser(description='Transform CRO DICOM images to PNG as downloaded from Ambra web interface.')
+    parser.add_argument('-i', '--input-data-folder', help="Folder containing DICOM images. \n", required=True)
+    parser.add_argument('-o', '--output-data-folder', help="Folder where PNG images will be stored. \n", required=True)
+    args = parser.parse_args()
+
+
+    cro_dicom_scrapper(args.input_data_folder, args.output_data_folder, 12, False)

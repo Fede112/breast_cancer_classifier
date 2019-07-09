@@ -147,6 +147,15 @@ def run(parameters):
     # handle = model.view_resnet.layer_list[4][1].conv2.register_forward_hook(tools.get_activation(activation, 'out_resnet'))
 
 
+    for datum in tqdm.tqdm(exam_list):
+        for short_file_path in datum[view]:
+            loaded_image = loading.load_image(
+                image_path=os.path.join(parameters["image_path"], short_file_path + image_extension),
+                view=view,
+                horizontal_flip=datum["horizontal_flip"],
+            )
+            loaded_image_dict[view].append(loaded_image)
+        
 
 
     for data_batch in tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"]):

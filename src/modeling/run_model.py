@@ -175,6 +175,7 @@ def compute_batch_predictions(y_hat, mode):
     """
     Format predictions from different heads
     """
+
     if mode == MODELMODES.VIEW_SPLIT:
         assert y_hat[VIEWANGLES.CC].shape == (1, 4, 2)
         assert y_hat[VIEWANGLES.MLO].shape == (1, 4, 2)
@@ -213,6 +214,7 @@ def compute_batch_predictions(y_hat, mode):
     else:
         raise KeyError(mode)
     return batch_prediction_dict
+
 
 
 def load_run_save(data_path, output_path, parameters):

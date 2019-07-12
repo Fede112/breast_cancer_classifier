@@ -3,3 +3,5 @@
 .ipynb_checkpoints
 sample_output/
 *.pdf
+*.dcm
+dicom_CRO/

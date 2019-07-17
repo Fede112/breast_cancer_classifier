@@ -41,6 +41,7 @@ class SplitBreastModel(nn.Module):
 
         self.fc1_cc = nn.Linear(256 * 2, 256 * 2)
         self.fc1_mlo = nn.Linear(256 * 2, 256 * 2)
+        # F: (4,2) because for each output it generates the complement
         self.output_layer_cc = layers.OutputLayer(256 * 2, (4, 2))
         self.output_layer_mlo = layers.OutputLayer(256 * 2, (4, 2))
 
@@ -134,6 +135,7 @@ class SingleImageBreastModel(nn.Module):
         self.output_layer = layers.OutputLayer(256, (2, 2))
 
         # self.all_views_avg_pool = layers.AllViewsAvgPool()
+        # F: added a specific layer to do the singleviewavgpool
         self.all_views_avg_pool = layers.SingleViewAvgPool()
         self.all_views_gaussian_noise_layer = layers.AllViewsGaussianNoise(0.01)
 
@@ -143,7 +145,9 @@ class SingleImageBreastModel(nn.Module):
         # h = self.all_views_avg_pool.single_avg_pool(result)
         h = self.all_views_avg_pool(result)
         h = F.relu(self.fc1(h))
+        # print(f"before output - shape: {h.shape}")
         h = self.output_layer(h)[:2]
+        # print(f"output : {h}")
         return h
 
     def load_state_from_shared_weights(self, state_dict, view):
@@ -159,7 +163,7 @@ class SingleImageBreastModel(nn.Module):
             filter_strip_prefix(state_dict, "fc1_{}.".format(view_key))
         )
 
-        print(self.state_dict().keys())
+        # print(self.state_dict().keys())
 
         self.output_layer.load_state_dict({
             "fc_layer.weight": state_dict["output_layer_{}.fc_layer.weight".format(view_key)][:4],

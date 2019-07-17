@@ -140,11 +140,12 @@ def run(parameters):
 
     # set up hook
     
-    activation = {'out_resnet': []}
+    activation = {'resnet_out': [], 'resblock_4': []}
     # out_shape = [0,256]
-    # activation = {'out_resnet': torch.empty(out_shape)}
-    handle = model.all_views_avg_pool.register_forward_hook(tools.get_activation(activation, 'out_resnet'))
-    # handle = model.view_resnet.layer_list[4][1].conv2.register_forward_hook(tools.get_activation(activation, 'out_resnet'))
+    # activation = {'resnet_out': torch.empty(out_shape)}
+    handle_out = model.all_views_avg_pool.register_forward_hook(tools.get_activation(activation, 'resnet_out'))
+    # handle = model.all_views_avg_pool.register_foward_hook(tools.get_activation(activation, 'resnet_out'))
+    handle_4 = model.view_resnet.layer_list[4][1].conv2.register_forward_hook(tools.get_activation(activation, 'resblock_4'))
 
 
 
@@ -161,6 +162,7 @@ def run(parameters):
         tensor_batch = batch_to_tensor(batch, device)
         y_hat = model(tensor_batch)
         predictions = np.exp(y_hat.cpu().detach().numpy())[:, :2, 1]
+        print(predictions)
         all_predictions.append(predictions)
     agg_predictions = np.concatenate(all_predictions, axis=0).mean(0)
     predictions_dict = {
@@ -169,7 +171,8 @@ def run(parameters):
     }
     print(json.dumps(predictions_dict))
 
-    # print(activation['out_resnet'][0].shape)
+    print(activation['resnet_out'][0].shape)
+    print(activation['resblock_4'][0].shape)
 
 
 def main():

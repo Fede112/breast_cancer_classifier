@@ -42,6 +42,16 @@ def get_activation(layer_dict, name):
     Define hook to extract intermediate layer features
     """
     def hook(model, input, output):
-        # layer_dict[name].append(output.detach())
         layer_dict[name].append(output.detach())
+        # layer_dict[name] = torch.cat(layer_dict[name], output.detach())
     return hook
+
+
+def save_activations(layer_dict, output_path):
+    """
+    Save into separate files activations extracted with a hook. 
+    One file per layer/activation.
+    """
+    for layer_name, activation_list in layer_dict.items():
+        if not activation_list:
+            pass

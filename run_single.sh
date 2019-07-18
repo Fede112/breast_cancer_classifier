@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DEVICE_TYPE='cpu'
-NUM_EPOCHS=1
+NUM_EPOCHS=4
 HEATMAP_BATCH_SIZE=100
 GPU_NUMBER=0
 
@@ -45,7 +45,8 @@ python3 src/modeling/run_model_single.py \
     --use-augmentation \
     --num-epochs ${NUM_EPOCHS} \
     --device-type ${DEVICE_TYPE} \
-    --gpu-number ${GPU_NUMBER}
+    --gpu-number ${GPU_NUMBER} \
+    --batch-size 2
 
 # echo 'Stage 4b: Run Classifier (Image+Heatmaps)'
 # python3 src/modeling/run_model_single.py \

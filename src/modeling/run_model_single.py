@@ -140,18 +140,18 @@ def run(parameters):
 
     # set up hook
     
-    activation = {'resnet_out': [], 'resblock_4': []}
-    # out_shape = [0,256]
-    # activation = {'resnet_out': torch.empty(out_shape)}
+    # activation_dim_dict = {'resnet_out': [0, 256, 42, 31], 'resblock_0': [0, 16, 670, 486] }#, 'resblock_1': [], 'resblock_2': [], 'resblock_3': [], 'resblock_4': []}
+    # activation_dict = {k: torch.empty(v) for k,v in activation_dim_dict.items()} # {'resnet_out': torch.empty(out_shape)}
+
+    activation = {'resnet_out': [], 'resblock_0': [], 'resblock_1': [], 'resblock_2': [], 'resblock_3': [], 'resblock_4': []}
     handle_out = model.all_views_avg_pool.register_forward_hook(tools.get_activation(activation, 'resnet_out'))
-    # handle = model.all_views_avg_pool.register_foward_hook(tools.get_activation(activation, 'resnet_out'))
-    handle_4 = model.view_resnet.layer_list[4][1].conv2.register_forward_hook(tools.get_activation(activation, 'resblock_4'))
-
-
+    # model.view_resnet.layer_list[0][1].conv2 : we are selecting from resnet layer i , block j 
+    handle_0 = model.view_resnet.layer_list[0][1].conv2.register_forward_hook(tools.get_activation(activation, 'resblock_0'))
 
 
     for data_batch in tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"]):
         batch = []
+
         for _ in data_batch:
             batch.append(process_augment_inputs(
                 model_input=model_input,
@@ -171,8 +171,8 @@ def run(parameters):
     }
     print(json.dumps(predictions_dict))
 
-    print(activation['resnet_out'][0].shape)
-    print(activation['resblock_4'][0].shape)
+    print(activation['resnet_out'][1].shape)
+    print(activation['resblock_0'][1].shape)
 
 
 def main():
@@ -193,6 +193,8 @@ def main():
     parser.add_argument("--gpu-number", type=int, default=0)
     args = parser.parse_args()
 
+
+    print(args.batch_size)
     parameters = {
         "view": args.view,
         "model_path": args.model_path,

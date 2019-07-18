@@ -24,6 +24,8 @@
 Defines utility functions for various tasks in breast_cancer_classifier.
 """
 
+import os
+import numpy as np
 
 def partition_batch(ls, size):
     """
@@ -47,11 +49,48 @@ def get_activation(layer_dict, name):
     return hook
 
 
-def save_activations(layer_dict, output_path):
+def save_activations(activations_dict, output_folder):
     """
     Save into separate files activations extracted with a hook. 
     One file per layer/activation.
+    :param layer_dict: dictionary with the activations per layer.
+    :param output_data_folder: path to folder where to store the activation files.
     """
-    for layer_name, activation_list in layer_dict.items():
-        if not activation_list:
-            pass
+    
+    if os.path.exists(output_folder):
+        # Prevent overwriting to an existing directory
+        print("Error: the directory to save the activations already exists.")
+        return
+    else:
+        os.makedirs(output_folder)
+
+
+    for name, activation in activations_dict.items():
+        file_path = os.path.join(output_folder,name + '.pkl')
+        print(file_path)
+        with open(file_path,'wb') as file: 
+            np.save(file, activation.numpy())
+            # np.savetxt(file, activation.numpy())
+
+
+def load_activations(input_folder):
+    """
+    Load activations from different files into a single dictionary. 
+    One file per layer/activation.
+    :param layer_dict: dictionary with the activations per layer.
+    :param output_data_folder: path to folder where to store the activation files.
+    """
+    activations = {}
+    for file in os.listdir(input_folder):
+        if file.endswith('.pkl'):
+            full_path = os.path.join(input_folder, file)
+            name = file[:-4]
+            activation = load_single_activation(full_path)
+            activations[name] = activation
+    return activations
+
+
+    
+def load_single_activation(input_file):
+    with open(input_file, 'rb') as file:
+        return np.load(file)

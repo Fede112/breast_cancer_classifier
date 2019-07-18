@@ -138,15 +138,14 @@ def run(parameters):
     all_predictions = []
 
 
-    # set up hook
-    
+    # set up hook 
     # activation_dim_dict = {'resnet_out': [0, 256, 42, 31], 'resblock_0': [0, 16, 670, 486] }#, 'resblock_1': [], 'resblock_2': [], 'resblock_3': [], 'resblock_4': []}
-    # activation_dict = {k: torch.empty(v) for k,v in activation_dim_dict.items()} # {'resnet_out': torch.empty(out_shape)}
+    # activation_dict = {name: torch.empty(output_shape) for name,output_shape in activation_dim_dict.items()} # {'resnet_out': torch.empty(out_shape)}
 
-    activation = {'resnet_out': [], 'resblock_0': [], 'resblock_1': [], 'resblock_2': [], 'resblock_3': [], 'resblock_4': []}
-    handle_out = model.all_views_avg_pool.register_forward_hook(tools.get_activation(activation, 'resnet_out'))
+    activations = {'resnet_out': [], 'resblock_0': [], 'resblock_1': [], 'resblock_2': [], 'resblock_3': [], 'resblock_4': []}
+    handle_out = model.all_views_avg_pool.register_forward_hook(tools.get_activation(activations, 'resnet_out'))
     # model.view_resnet.layer_list[0][1].conv2 : we are selecting from resnet layer i , block j 
-    handle_0 = model.view_resnet.layer_list[0][1].conv2.register_forward_hook(tools.get_activation(activation, 'resblock_0'))
+    handle_0 = model.view_resnet.layer_list[0][1].conv2.register_forward_hook(tools.get_activation(activations, 'resblock_0'))
 
 
     for data_batch in tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"]):
@@ -162,7 +161,6 @@ def run(parameters):
         tensor_batch = batch_to_tensor(batch, device)
         y_hat = model(tensor_batch)
         predictions = np.exp(y_hat.cpu().detach().numpy())[:, :2, 1]
-        print(predictions)
         all_predictions.append(predictions)
     agg_predictions = np.concatenate(all_predictions, axis=0).mean(0)
     predictions_dict = {
@@ -171,8 +169,22 @@ def run(parameters):
     }
     print(json.dumps(predictions_dict))
 
-    print(activation['resnet_out'][1].shape)
-    print(activation['resblock_0'][1].shape)
+    print(activations['resnet_out'][1].shape)
+    print(activations['resblock_0'][1].shape)
+
+
+    # concatenate all the outputs we saved to get the the activations for each layer for the whole dataset
+    activations = {name: torch.cat(outputs, 0) for name, outputs in activations.items() if outputs}
+
+    # print activation size just as a check
+    for k,v in activations.items():
+        print (k, v.size())
+        print (k, v.is_cuda)
+
+    # tools.save_activations(activations, 'test_activation')
+    test = tools.load_activations('test_activation')
+    print([val.shape for val in test.values()])
+
 
 
 def main():

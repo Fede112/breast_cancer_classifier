@@ -1,5 +1,6 @@
 #!/bin/bash
 
+NUM_PROCESSES=3
 DEVICE_TYPE='cpu'
 NUM_EPOCHS=4
 HEATMAP_BATCH_SIZE=100
@@ -9,16 +10,32 @@ PATCH_MODEL_PATH='models/sample_patch_model.p'
 IMAGE_MODEL_PATH='models/ImageOnly__ModeImage_weights.p'
 IMAGEHEATMAPS_MODEL_PATH='models/ImageHeatmaps__ModeImage_weights.p'
 
+DATA_FOLDER='sample_single_data/images'
 SAMPLE_SINGLE_OUTPUT_PATH='sample_single_output'
+
+INITIAL_EXAM_LIST_PATH='sample_single_data/exam_list_before_cropping.pkl'
+CROPPED_EXAM_LIST_PATH='sample_single_output/cropped_exam_list.pkl'
+
 export PYTHONPATH=$(pwd):$PYTHONPATH
 
 
-# echo 'Stage 1: Crop Mammograms'
-# python3 src/cropping/crop_single.py \
-#     --mammogram-path $1 \
-#     --view $2 \
-#     --cropped-mammogram-path ${SAMPLE_SINGLE_OUTPUT_PATH}/cropped.png \
-#     --metadata-path ${SAMPLE_SINGLE_OUTPUT_PATH}/cropped_metadata.pkl
+echo 'Stage 1: Crop Mammograms'
+python3 src/cropping/crop_single.py \
+    --view 'LCC' \
+    --input-data-folder ${DATA_FOLDER} \
+    --output-data-folder ${SAMPLE_SINGLE_OUTPUT_PATH}/ \
+    --exam-list-path ${INITIAL_EXAM_LIST_PATH}  \
+    --cropped-exam-list-path ${SAMPLE_SINGLE_OUTPUT_PATH}/cropped_metadata.pkl \
+    --num-processes $NUM_PROCESSES
+
+echo 'Stage 1: Crop Mammograms full'
+python3 src/cropping/crop_mammogram.py \
+    --input-data-folder $DATA_FOLDER \
+    --output-data-folder $CROPPED_IMAGE_PATH \
+    --exam-list-path $INITIAL_EXAM_LIST_PATH  \
+    --cropped-exam-list-path $CROPPED_EXAM_LIST_PATH  \
+    --num-processes $NUM_PROCESSES
+
 
 # echo 'Stage 2: Extract Centers'
 # python3 src/optimal_centers/get_optimal_center_single.py \

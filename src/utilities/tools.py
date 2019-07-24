@@ -44,7 +44,7 @@ def get_activation(layer_dict, name):
     Define hook to extract intermediate layer features
     """
     def hook(model, input, output):
-        layer_dict[name].append(output.detach())
+        layer_dict[name].append(output.detach().view((output.shape[0],-1)))
         # layer_dict[name] = torch.cat(layer_dict[name], output.detach())
     return hook
 
@@ -92,5 +92,8 @@ def load_activations(input_folder):
 
     
 def load_single_activation(input_file):
+    """
+    Load single activation from a binary file (saved as pickle)
+    """
     with open(input_file, 'rb') as file:
         return np.load(file)

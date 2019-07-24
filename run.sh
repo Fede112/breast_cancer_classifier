@@ -6,8 +6,8 @@ NUM_EPOCHS=10
 HEATMAP_BATCH_SIZE=100
 GPU_NUMBER=0
 
-DATA_FOLDER='sample_data_CRO/images'
-INITIAL_EXAM_LIST_PATH='sample_data_CRO/exam_list_before_cropping.pkl'
+DATA_FOLDER='sample_data/images'
+INITIAL_EXAM_LIST_PATH='sample_data/exam_list_before_cropping.pkl'
 PATCH_MODEL_PATH='models/sample_patch_model.p'
 IMAGE_MODEL_PATH='models/sample_image_model.p'
 IMAGEHEATMAPS_MODEL_PATH='models/sample_imageheatmaps_model.p'
@@ -29,7 +29,7 @@ python3 src/cropping/crop_mammogram.py \
     --num-processes $NUM_PROCESSES
 # rm -r ./sample_output/cropped_images
 
-# echo 'Stage 2: Extract Centers'
+echo 'Stage 2: Extract Centers'
 python3 src/optimal_centers/get_optimal_centers.py \
     --cropped-exam-list-path $CROPPED_EXAM_LIST_PATH \
     --data-prefix $CROPPED_IMAGE_PATH \
@@ -50,7 +50,7 @@ python3 src/optimal_centers/get_optimal_centers.py \
 # F: --model-path: sample_image_model.p:
 # F: --data-path: output-exam-list-path after extracting centers:
 # F: --output-path: image prediction as csv:
-# echo 'Stage 4a: Run Classifier (Image)'
+echo 'Stage 4a: Run Classifier (Image)'
 python3 src/modeling/run_model.py \
     --model-path $IMAGE_MODEL_PATH \
     --data-path $EXAM_LIST_PATH \
@@ -59,18 +59,17 @@ python3 src/modeling/run_model.py \
     --use-augmentation \
     --num-epochs $NUM_EPOCHS \
     --device-type $DEVICE_TYPE \
-    --gpu-number $GPU_NUMBER \
-    --batch-size 2
+    --gpu-number $GPU_NUMBER 
 
-# echo 'Stage 4b: Run Classifier (Image+Heatmaps)'
-# python3 src/modeling/run_model.py \
-#     --model-path $IMAGEHEATMAPS_MODEL_PATH \
-#     --data-path $EXAM_LIST_PATH \
-#     --image-path $CROPPED_IMAGE_PATH \
-#     --output-path $IMAGEHEATMAPS_PREDICTIONS_PATH \
-#     --use-heatmaps \
-#     --heatmaps-path $HEATMAPS_PATH \
-#     --use-augmentation \
-#     --num-epochs $NUM_EPOCHS \
-#     --device-type $DEVICE_TYPE \
-#     --gpu-number $GPU_NUMBER
+echo 'Stage 4b: Run Classifier (Image+Heatmaps)'
+python3 src/modeling/run_model.py \
+    --model-path $IMAGEHEATMAPS_MODEL_PATH \
+    --data-path $EXAM_LIST_PATH \
+    --image-path $CROPPED_IMAGE_PATH \
+    --output-path $IMAGEHEATMAPS_PREDICTIONS_PATH \
+    --use-heatmaps \
+    --heatmaps-path $HEATMAPS_PATH \
+    --use-augmentation \
+    --num-epochs $NUM_EPOCHS \
+    --device-type $DEVICE_TYPE \
+    --gpu-number $GPU_NUMBER

@@ -112,6 +112,7 @@ def run_model(model, device, exam_list, parameters):
                         # F: they use different augmentation for each view
                         if parameters["augmentation"]:
                             image_index = random_number_generator.randint(low=0, high=len(datum[view]))
+                        
                         cropped_image, cropped_heatmaps = loading.augment_and_normalize_image(
                             image=loaded_image_dict[view][image_index],
                             auxiliary_image=loaded_heatmaps_dict[view][image_index],
@@ -174,6 +175,7 @@ def compute_batch_predictions(y_hat, mode):
     """
     Format predictions from different heads
     """
+
     if mode == MODELMODES.VIEW_SPLIT:
         assert y_hat[VIEWANGLES.CC].shape[1:] == (4, 2)
         assert y_hat[VIEWANGLES.MLO].shape[1:] == (4, 2)
@@ -212,6 +214,7 @@ def compute_batch_predictions(y_hat, mode):
     else:
         raise KeyError(mode)
     return batch_prediction_dict
+
 
 
 def load_run_save(data_path, output_path, parameters):

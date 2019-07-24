@@ -152,6 +152,7 @@ def run(parameters):
     handle_4 = model.view_resnet.layer_list[4][1].conv2.register_forward_hook(tools.get_activation(activations, 'resblock_4'))
 
 
+
     for data_batch in tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"]):
         batch = []
 

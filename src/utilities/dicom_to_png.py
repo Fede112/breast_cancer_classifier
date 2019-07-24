@@ -8,6 +8,11 @@
 import png
 import pydicom
 import os
+import argparse
+from functools import partial
+from multiprocessing import Pool
+
+
 
 
 import sys
@@ -15,10 +20,10 @@ import sys
 ####
 ## Temporary addition to find src file (if called from bash: export PYTHONPATH=$(pwd):$PYTHONPATH)
 current_dir = os.path.dirname(os.path.abspath(__file__))
-print(sys.path)
+# print(sys.path)
 # appending parent dir of current_dir to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
-print(sys.path)
+# print(sys.path)
 ####
 
 import src.utilities.pickling as pickling
@@ -42,15 +47,18 @@ def save_dicom_image_as_png(dicom_filename, png_filename, bitdepth=12):
 
 
 
-def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generate_png = False):
+def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generate_png = False, num_processes = 2):
     """
-    It goes threw all the folders inside input_directory, each one corresponding to a single CRO exam.
-    It finds all the .dcm images associated with that exam and creates the metadata and .png.
+    It finds all the .dcm images inside the input_directory and creates the corresponding metadata and .png. 
+    The structure of this directory should be as follows:
+    input_directory/exam1/ ; input_directory/exam2/ ; input_directory/exam3/ 
+    Each subdirectory corresponds to a single CRO exam.
+    It converts dcm_to_png in parallel
     :param input_directory: path to the directory containig CRO exams
     :param output_directory: path to the directory where to put the images and metadata
 
     """
-    # Create folder were to store pngs and metadata
+    # Create folder were to store .pngs and metadata
     if generate_png:
         # Check if folder exists
         if os.path.exists(output_directory):
@@ -59,21 +67,34 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
             return
         else:
             os.makedirs(output_directory)
-        images_dir = os.path.join(output_directory, 'images')
-        os.makedirs(images_dir)
+            images_dir = os.path.join(output_directory, 'images')
+            os.makedirs(images_dir)
 
 
-    list_of_files = os.listdir(input_directory) # other alternative was os.walk
-    
-    # We create an exam_list compatible with the NYU's 2019 algorithm
+    # list of files and subdirectories inside input_directory
+    file_list = os.listdir(input_directory) # other alternative was os.walk
+    # list of directories that couldn't be open
+    exam_err_list = []
+    # exam_list compatible with the one required by NYU's 2019 algorithm
     exam_list = []
-    print(list_of_files)
-    for entry in list_of_files:
+    # dcm path list. Used for dcm_to_png in parallel
+    dcm_path_list = []
+
+    print(file_list)
+    for entry in file_list:
+        # print (f'entry: {entry}')
         full_path = os.path.join(input_directory, entry)
+        # if the entry is a directory we asume it is an exam and look for the dcm images inside.
         if os.path.isdir(full_path):
             exam_dcm_paths = get_dicom_files(full_path)
             exam_dict = {'horizontal_flip': '', 'L-CC': [], 'L-MLO': [], 'R-MLO': [], 'R-CC': []}
             exam_id = ''
+
+            # If there are less or more than 4 images don't use it
+            # In the future we should handle more than 4 images
+            if not len(exam_dcm_paths) == 4:
+                exam_err_list.append(entry)
+                continue
 
             for dcm_file in exam_dcm_paths:
                 ds = pydicom.dcmread(dcm_file)
@@ -83,54 +104,80 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
 
                 # Check exam_id for all dcm
                 if exam_id == '':
-                    exam_id = ds.StudyID
+                    exam_id = ds.PatientID
                 else:
-                    assert exam_id == ds.StudyID, "Exam id is not the same for all dcm images in the specified folder."
+                    # assert exam_id == ds.PatientID, "Exam id is not the same for all dcm images in folder " + entry
+                    if not exam_id == ds.PatientID:
+                        exam_err_list.append(entry)
+                        break
+                
                 # Check horizontal_flip for all dcm
                 if not exam_dict['horizontal_flip']:
                     exam_dict['horizontal_flip'] = horizontal_flip
                 else:
-                    assert exam_dict['horizontal_flip'] == horizontal_flip , "Horizontal flip is not the same for every image in exam."
+                    # assert exam_dict['horizontal_flip'] == horizontal_flip , "Horizontal flip is not the same for every image in exam " + entry
+                    if not exam_dict['horizontal_flip'] == horizontal_flip:
+                        exam_err_list.append(entry)
+                        break
+
+                # Check if laterality and view_angle are as expected
+                if laterality not in ['L', 'R']:
+                    exam_err_list.append(entry)
+                    break
+                if view_angle not in ['CC', 'MLO']:
+                    exam_err_list.append(entry)
+                    break
 
                 view = laterality + '-' + view_angle
                 label = exam_id + '_' + laterality + '_' + view_angle
                 exam_dict[view].append(label)
 
+            else: 
+                exam_list.append(exam_dict)
+                dcm_path_list += exam_dcm_paths
 
-                # Generate pngs
-                if generate_png:
-                    full_png_path = os.path.join(images_dir, label + '.png')
-                    image = ds.pixel_array
 
-                    # try:
-                    #     # F: saves the cropped image!
-                    #     saving_images.save_image_as_png(image, full_png_path)
-                    # except Exception as error:
-                    #     print(full_file_path, "\n\tError while saving image.", str(error))
+    # print(f"exam_list: \n {exam_list}")
+    exam_list_path = os.path.join(output_directory, 'exam_list_before_cropping.pkl')
+    pickling.pickle_to_file(exam_list_path, exam_list)
+    print(f'dcm_path_list: \n {len(dcm_path_list)/4.}')
+    exam_err_list = set(exam_err_list)
+    print(f'Folder with error in Dicom images: \n {exam_err_list}')
 
-                    with open(full_png_path, 'wb') as f:
-                        writer = png.Writer(height=image.shape[0], width=image.shape[1], bitdepth=bitdepth, greyscale=True)
-                        writer.write(f, image.tolist())
 
-            exam_list.append(exam_dict)
+    # Generate pngs
+    if generate_png:
+        dicom_to_png_fix_out = partial(dicom_to_png, output_directory = images_dir)
+        with Pool(num_processes) as pool:
+            pool.map(dicom_to_png_fix_out, dcm_path_list)
 
-        # print(f"exam_list: \n {exam_list}")
-        exam_list_path = os.path.join(output_directory, 'exam_list_before_cropping.pkl')
-        pickling.pickle_to_file(exam_list_path, exam_list)
+    
 
-        
+def dicom_to_png(dcm_full_path, output_directory, bitdepth = 12):
+    ds = pydicom.dcmread(dcm_full_path)
+    image = ds.pixel_array
+    exam_id = ds.PatientID
+    laterality = ds.ImageLaterality
+    view_angle= ds.ViewPosition
+    label = exam_id + '_' + laterality + '_' + view_angle
+    full_png_path = os.path.join(output_directory, label + '.png')
+
+
+    with open(full_png_path, 'wb') as f:
+        writer = png.Writer(height=image.shape[0], width=image.shape[1], bitdepth=bitdepth, greyscale=True)
+        writer.write(f, image.tolist())
+
 
 
 def get_dicom_files(dir_name):
     """
-    For the given path, get the List of all files in the directory tree 
+    returns a list with the full path of each dcm file in the directory tree 
     """
-    # create a list of file and sub directories 
-    # names in the given directory 
-    list_of_files = os.listdir(dir_name)
+    # create a list of file and sub directories in the given directory 
+    file_list = os.listdir(dir_name)
     dcm_files = []
     # Iterate over the entries
-    for entry in list_of_files:
+    for entry in file_list:
         # Create full path
         full_path = os.path.join(dir_name, entry)
         # If entry is a directory then get the list of files in this directory 
@@ -145,4 +192,10 @@ def get_dicom_files(dir_name):
 
 
 if __name__ == "__main__":
-    cro_dicom_scrapper("./dicom_CRO/", "./sample_data_CRO_test/", 12, False)
+    parser = argparse.ArgumentParser(description='Transform CRO DICOM images to PNG as downloaded from Ambra web interface.')
+    parser.add_argument('-i', '--input-data-folder', help="Folder containing DICOM images. \n", required=True)
+    parser.add_argument('-o', '--output-data-folder', help="Folder where PNG images will be stored. \n", required=True)
+    args = parser.parse_args()
+
+
+    cro_dicom_scrapper(args.input_data_folder, args.output_data_folder, 12, True, 10)

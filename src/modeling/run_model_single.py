@@ -26,7 +26,9 @@ Runs the image only model and image+heatmaps model for breast cancer prediction.
 import argparse
 import numpy as np
 import torch
+import os
 import json
+from tqdm import tqdm
 
 import src.utilities.pickling as pickling
 import src.utilities.tools as tools
@@ -60,7 +62,7 @@ def load_model(parameters):
     return model, device
 
 
-def load_inputs(image_path, metadata_path,
+def load_inputs(image_path, metadata,
                 use_heatmaps, benign_heatmap_path=None, malignant_heatmap_path=None):
     """
     Load a single input example, optionally with heatmaps
@@ -71,7 +73,7 @@ def load_inputs(image_path, metadata_path,
     else:
         assert benign_heatmap_path is None
         assert malignant_heatmap_path is None
-    metadata = pickling.unpickle_from_file(metadata_path)
+
     image = loading.load_image(
         image_path=image_path,
         view=metadata["full_view"],
@@ -119,24 +121,15 @@ def batch_to_tensor(batch, device):
     return torch.tensor(np.stack(batch)).permute(0, 3, 1, 2).to(device)
 
 
-def run(parameters):
+def run(data_path, output_path, parameters):
     """
     Outputs the predictions as csv file
     """
     random_number_generator = np.random.RandomState(parameters["seed"])
+    
+    exam_list = pickling.unpickle_from_file(data_path)
     model, device = load_model(parameters)
-
-    model_input = load_inputs(
-        image_path=parameters["cropped_mammogram_path"],
-        metadata_path=parameters["metadata_path"],
-        use_heatmaps=parameters["use_heatmaps"],
-        benign_heatmap_path=parameters["heatmap_path_benign"],
-        malignant_heatmap_path=parameters["heatmap_path_malignant"],
-    )
-    assert model_input.metadata["full_view"] == parameters["view"]
-
-    all_predictions = []
-
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     # set up hook 
     # activation_dim_dict = {'resnet_out': [0, 256, 42, 31], 'resblock_0': [0, 16, 670, 486] }#, 'resblock_1': [], 'resblock_2': [], 'resblock_3': [], 'resblock_4': []}
@@ -153,33 +146,48 @@ def run(parameters):
 
 
 
-    for data_batch in tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"]):
-        batch = []
+    with torch.no_grad():
+        predictions_ls=[]
+        for datum in tqdm(exam_list):
+            predictions_for_datum = []
+            image_path = os.path.join(parameters["cropped_mammogram_path"], datum['short_file_path'] + '.png')
+            model_input = load_inputs(
+                image_path = image_path,
+                metadata = datum,
+                use_heatmaps = parameters["use_heatmaps"],
+                benign_heatmap_path = parameters["heatmap_path_benign"],
+                malignant_heatmap_path = parameters["heatmap_path_malignant"],
+            )
+            assert model_input.metadata["full_view"] == parameters["view"]
 
-        for _ in data_batch:
-            batch.append(process_augment_inputs(
-                model_input=model_input,
-                random_number_generator=random_number_generator,
-                parameters=parameters,
-            ))
+            for data_batch in tools.partition_batch(range(parameters["num_epochs"]), parameters["batch_size"]):
+                batch = []
 
-        tensor_batch = batch_to_tensor(batch, device)
-        y_hat = model(tensor_batch)
-        predictions = np.exp(y_hat.cpu().detach().numpy())[:, :2, 1]
-        all_predictions.append(predictions)
-    agg_predictions = np.concatenate(all_predictions, axis=0).mean(0)
-    predictions_dict = {
-        "benign": float(agg_predictions[0]),
-        "malignant": float(agg_predictions[1]),
-    }
-    print(json.dumps(predictions_dict))
+                for _ in data_batch:
+                    batch.append(process_augment_inputs(
+                        model_input=model_input,
+                        random_number_generator=random_number_generator,
+                        parameters=parameters,
+                    ))
 
-    print(activations['resnet_out'][1].shape)
-    print(activations['resblock_0'][1].shape)
-    print(activations['resblock_1'][1].shape)
-    print(activations['resblock_2'][1].shape)
-    print(activations['resblock_3'][1].shape)
-    print(activations['resblock_4'][1].shape)
+                tensor_batch = batch_to_tensor(batch, device)
+                y_hat = model(tensor_batch)
+                predictions = np.exp(y_hat.cpu().detach().numpy())[:, :2, 1]
+                predictions_for_datum.append(predictions)
+            agg_predictions = np.concatenate(predictions_for_datum, axis=0).mean(0)
+            predictions_dict = {
+                "benign": float(agg_predictions[0]),
+                "malignant": float(agg_predictions[1]),
+            }
+            predictions_ls.append(agg_predictions)
+            print(json.dumps(predictions_dict))
+    # return np.array(predictions_ls)
+    # print(activations['resnet_out'][1].shape)
+    # print(activations['resblock_0'][1].shape)
+    # print(activations['resblock_1'][1].shape)
+    # print(activations['resblock_2'][1].shape)
+    # print(activations['resblock_3'][1].shape)
+    # print(activations['resblock_4'][1].shape)
 
 
     # concatenate all the outputs we saved to get the the activations for each layer for the whole dataset
@@ -200,8 +208,9 @@ def main():
     parser = argparse.ArgumentParser(description='Run image-only model or image+heatmap model')
     parser.add_argument('--view', required=True)
     parser.add_argument('--model-path', required=True)
+    parser.add_argument('--data-path', required=True)
     parser.add_argument('--cropped-mammogram-path', required=True)
-    parser.add_argument('--metadata-path', required=True)
+    parser.add_argument('--output-path', required=True)
     parser.add_argument('--batch-size', default=1, type=int)
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--use-heatmaps', action="store_true")
@@ -220,7 +229,7 @@ def main():
         "view": args.view,
         "model_path": args.model_path,
         "cropped_mammogram_path": args.cropped_mammogram_path,
-        "metadata_path": args.metadata_path,
+        # "data_path": args.data_path,
         "device_type": args.device_type,
         "gpu_number": args.gpu_number,
         "max_crop_noise": (100, 100),
@@ -234,7 +243,11 @@ def main():
         "heatmap_path_malignant": args.heatmap_path_malignant,
         "use_hdf5": args.use_hdf5,
     }
-    run(parameters)
+    run(
+        data_path=args.data_path,
+        output_path=args.output_path,
+        parameters=parameters,
+    )
 
 
 if __name__ == "__main__":

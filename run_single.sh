@@ -12,12 +12,19 @@ IMAGEHEATMAPS_MODEL_PATH='models/ImageHeatmaps__ModeImage_weights.p'
 
 # SAMPLE_SINGLE_OUTPUT_PATH='sample_single_output'
 
+# initial files
 INITIAL_EXAM_LIST_PATH='sample_data/exam_single_list_before_cropping.pkl'
 DATA_FOLDER='sample_data/images'
 
-CROPPED_EXAM_LIST_PATH='sample_single_output/cropped_exam_single_list.pkl'
+#cropped files
+CROPPED_EXAM_LIST_PATH='sample_single_output/cropped_images/cropped_exam_single_list.pkl'
 CROPPED_IMAGE_PATH='sample_single_output/cropped_images'
 EXAM_LIST_PATH='sample_single_output/data.pkl'
+
+# output files
+IMAGE_PREDICTIONS_PATH='sample_single_output/image_predictions.csv'
+# IMAGEHEATMAPS_PREDICTIONS_PATH='sample_output/imageheatmaps_predictions.csv'
+
 
 
 
@@ -62,6 +69,19 @@ python3 src/optimal_centers/get_optimal_center_single.py \
 #     --device-type ${DEVICE_TYPE} \
 #     --gpu-number ${GPU_NUMBER} \
 #     --batch-size 2
+
+echo 'Stage 4a: Run Classifier (Image)'
+python3 src/modeling/run_model_single.py \
+	--view 'L-CC' \
+    --model-path $IMAGE_MODEL_PATH \
+    --data-path $EXAM_LIST_PATH \
+    --cropped-mammogram-path $CROPPED_IMAGE_PATH \
+    --output-path $IMAGE_PREDICTIONS_PATH \
+    --use-augmentation \
+    --num-epochs $NUM_EPOCHS \
+    --device-type $DEVICE_TYPE \
+    --gpu-number $GPU_NUMBER \
+    --batch-size 2
 
 # echo 'Stage 4b: Run Classifier (Image+Heatmaps)'
 # python3 src/modeling/run_model_single.py \

@@ -10,37 +10,35 @@ PATCH_MODEL_PATH='models/sample_patch_model.p'
 IMAGE_MODEL_PATH='models/ImageOnly__ModeImage_weights.p'
 IMAGEHEATMAPS_MODEL_PATH='models/ImageHeatmaps__ModeImage_weights.p'
 
-DATA_FOLDER='sample_single_data/images'
-SAMPLE_SINGLE_OUTPUT_PATH='sample_single_output'
+# SAMPLE_SINGLE_OUTPUT_PATH='sample_single_output'
 
-INITIAL_EXAM_LIST_PATH='sample_single_data/exam_list_before_cropping.pkl'
-CROPPED_EXAM_LIST_PATH='sample_single_output/cropped_exam_list.pkl'
+INITIAL_EXAM_LIST_PATH='sample_data/exam_single_list_before_cropping.pkl'
+DATA_FOLDER='sample_data/images'
+
+CROPPED_EXAM_LIST_PATH='sample_single_output/cropped_exam_single_list.pkl'
+CROPPED_IMAGE_PATH='sample_single_output/cropped_images'
+EXAM_LIST_PATH='sample_single_output/data.pkl'
+
+
 
 export PYTHONPATH=$(pwd):$PYTHONPATH
 
 
-echo 'Stage 1: Crop Mammograms'
-python3 src/cropping/crop_single.py \
-    --view 'LCC' \
-    --input-data-folder ${DATA_FOLDER} \
-    --output-data-folder ${SAMPLE_SINGLE_OUTPUT_PATH}/ \
-    --exam-list-path ${INITIAL_EXAM_LIST_PATH}  \
-    --cropped-exam-list-path ${SAMPLE_SINGLE_OUTPUT_PATH}/cropped_metadata.pkl \
-    --num-processes $NUM_PROCESSES
-
 echo 'Stage 1: Crop Mammograms full'
-python3 src/cropping/crop_mammogram.py \
+python3 src/cropping/crop_single.py \
     --input-data-folder $DATA_FOLDER \
-    --output-data-folder $CROPPED_IMAGE_PATH \
     --exam-list-path $INITIAL_EXAM_LIST_PATH  \
     --cropped-exam-list-path $CROPPED_EXAM_LIST_PATH  \
+    --output-data-folder $CROPPED_IMAGE_PATH \
     --num-processes $NUM_PROCESSES
 
+echo 'Stage 2: Extract Centers'
+python3 src/optimal_centers/get_optimal_center_single.py \
+    --cropped-exam-list-path $CROPPED_EXAM_LIST_PATH \
+    --cropped-image-path $CROPPED_IMAGE_PATH \
+    --output-exam-list-path $EXAM_LIST_PATH \
+    --num-processes $NUM_PROCESSES
 
-# echo 'Stage 2: Extract Centers'
-# python3 src/optimal_centers/get_optimal_center_single.py \
-#     --cropped-mammogram-path ${SAMPLE_SINGLE_OUTPUT_PATH}/cropped.png \
-#     --metadata-path ${SAMPLE_SINGLE_OUTPUT_PATH}/cropped_metadata.pkl
 
 # echo 'Stage 3: Generate Heatmaps'
 # python3 src/heatmaps/run_producer_single.py \
@@ -53,17 +51,17 @@ python3 src/cropping/crop_mammogram.py \
 #     --device-type ${DEVICE_TYPE} \
 #     --gpu-number ${GPU_NUMBER}
 
-echo 'Stage 4a: Run Classifier (Image)'
-python3 src/modeling/run_model_single.py \
-    --view $2 \
-    --model-path ${IMAGE_MODEL_PATH} \
-    --cropped-mammogram-path sample_single_output/cropped.png \
-    --metadata-path sample_single_output/cropped_metadata.pkl \
-    --use-augmentation \
-    --num-epochs ${NUM_EPOCHS} \
-    --device-type ${DEVICE_TYPE} \
-    --gpu-number ${GPU_NUMBER} \
-    --batch-size 2
+# echo 'Stage 4a: Run Classifier (Image)'
+# python3 src/modeling/run_model_single.py \
+#     --view $2 \
+#     --model-path ${IMAGE_MODEL_PATH} \
+#     --cropped-mammogram-path sample_single_output/cropped.png \
+#     --metadata-path sample_single_output/cropped_metadata.pkl \
+#     --use-augmentation \
+#     --num-epochs ${NUM_EPOCHS} \
+#     --device-type ${DEVICE_TYPE} \
+#     --gpu-number ${GPU_NUMBER} \
+#     --batch-size 2
 
 # echo 'Stage 4b: Run Classifier (Image+Heatmaps)'
 # python3 src/modeling/run_model_single.py \

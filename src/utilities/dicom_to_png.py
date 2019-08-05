@@ -149,7 +149,7 @@ def _get_dicom_files(dir_name):
 
 
 
-def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generate_png = False, num_processes = 2):
+def cro_dicom_scrapper(input_directory, output_directory):
     """
     It finds all the .dcm images inside the input_directory and generates the corresponding metadata
     needed to run the NYU Classification algorithm. If the exam has any error of labels or formatting it is skipped.
@@ -161,23 +161,21 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
     The names of the .dcm files (usually random) are renamed to match the metadata information.
 
     :param input_directory: path to the directory containig exams
-    :param output_directory: path to the directory where to put the images and metadata
-    :return: exam_list: metadata list, exam_not_four_list: metadata list of exams with more/less than four images,
-             exam_error_list: metadata list of exams with any type of error.
+    :param output_directory: path to the directory where to put the metadata
+    :return: base_exam_list: metadata list, exam_error_list: metadata list of exams with any type of error.
     """
 
-    # Create folder were to store .pngs and metadata
-    if generate_png:
-        # Check if folder exists
-        if os.path.exists(output_directory):
-            # Prevent overwriting to an existing directory
-            print("Error: the directory to save png images already exists.")
-            return
-        else:
-            os.makedirs(output_directory)
-            images_dir = os.path.join(output_directory, 'images')
-            os.makedirs(images_dir)
+    # Complete output path
+    exam_list_path = os.path.join(output_directory, 'base_exam_list.pkl')
+    exam_error_list_path = os.path.join(output_directory, 'exam_error_list.pkl')
 
+    # Prevents overwriting an existing file
+    if os.path.isfile(exam_list_path):
+        print("Error: an exam list file with that name already exists.")
+        return
+    else:
+        # Check if output_directory exists, if not, creates it.
+        os.makedirs(output_directory, exist_ok=True)
 
     print('\nScrapping dicom images and checking for errors...')
 
@@ -262,15 +260,13 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
 
 
             else:
-                all_list.append(base_exam_dict)
+                base_exam_list.append(base_exam_dict)
                 dcm_path_list += exam_dcm_paths
 
     
-    # saving lists:
-    exam_list_path = os.path.join(output_directory, 'exam_list_before_cropping.pkl')
-    exam_error_list_path = os.path.join(output_directory, 'exam_error_list.pkl')
 
-    # pickling.pickle_to_file(exam_list_path, base_exam_list)
+    # saving lists:
+    pickling.pickle_to_file(exam_list_path, base_exam_list)
     # pickling.pickle_to_file(exam_error_list_path, exam_error_list)
 
 
@@ -294,6 +290,7 @@ def generate_exam_list(base_exam_list, output_directory = 'sample_data', output_
 
     # Prevents overwriting an existing file
     if os.path.isfile(exam_list_path):
+        print(exam_list_path)
         print("Error: an exam list file with that name already exists.")
         return
     else:
@@ -303,12 +300,17 @@ def generate_exam_list(base_exam_list, output_directory = 'sample_data', output_
     exam_list = []
     exam_keys = ['horizontal_flip', 'L-CC', 'L-MLO', 'R-MLO', 'R-CC']
 
+
+    equal_four = 0
     for base_exam in base_exam_list:
         if base_exam['num_images'] == 4:
             # filter the fields from base_exam to match exam_keys as required by NYU classifier algorithm. 
-            exam = {k:v for k,v in base_exam if k in exam_keys}
+            exam = {k:v for k,v in base_exam.items() if k in exam_keys}
             exam_list.append(exam)
-            print(exam)
+            # print(exam)
+            equal_four += 1
+
+    print(f'exams with four images: {equal_four}')
 
     # save exam_list in output_directory
     pickling.pickle_to_file(exam_list_path, exam_list)
@@ -368,17 +370,64 @@ def generate_exam_single_list(base_exam_list, view, output_directory = 'sample_d
     return exam_single_list
 
 
-def images_from_exam_list(exam_list, output_directory = os.path.join('sample_data', 'images')):
-        # It also provides the option to generate the png files. The png are generated in parallel.
+def _generate_dcm_path_list(exam_list, input_directory, output_directory):
+    """
+    Auxiliary function to generate the dcm path list for the particular exam_list.
+    Because exam_single_dict doesn't share the same structure than regular exams dictionaries we
+    need to force the user to specify if the exam is unique or not.
+
+    :param input_directory: path to the directory containig dicom files. One directory per exam.
+    :param output_directory: path to the directory where to put the images
+    """
+
+    # TBI: merge single view with four view exams dictionaries. This would imply diverging too much
+    #       from the original NYU repo.
+
+    dcm_path_list = []
+
+    if 'short_file_path' not in exam_list[0].keys():
+        lookup_keys = ['L-CC', 'L-MLO', 'R-MLO', 'R-CC']
+    else:
+        lookup_keys = ['short_file_path']
+    for exam in exam_list:
+        # temp = [os.path.join(input_directory,v[0]+'.dcm') for k,v in exam.items() if k in lookup_keys]
+        # dcm_path_list += temp
+        print(exam)
+        for k,v in exam.items():
+            if k in lookup_keys:
+                print(v[0]) 
+
+    return dcm_path_list
 
 
-    # # Generate pngs
-    # if generate_png:
-    #     print(f'\nGenerating png images spawning {num_processes} processes...')
-    #     dicom_to_png_fix_out = partial(dicom_to_png, output_directory = images_dir)
-    #     with Pool(num_processes) as pool:
-    #         pool.map(dicom_to_png_fix_out, dcm_path_list)
-    #     print('Done!\n')
+def images_from_exam_list(exam_list, input_directory, output_directory = os.path.join('sample_data', 'images'),
+                            bitdepth = 12, num_processes = 2 ):
+    """
+    Generate png images from an exam list.
+    The default output_directory is ./sample_data/images/
+    The png are generated in parallel.
+    """   
+
+    dcm_path_list = _generate_dcm_path_list(exam_list, input_directory, output_directory)
+
+
+    # Create folder were to store .pngs and metadata
+    # Check if folder exists
+    if os.path.exists(output_directory):
+        # Prevent overwriting to an existing directory
+        print("Error: the directory to save png images already exists.")
+        return
+    else:
+        os.makedirs(output_directory)
+        images_dir = os.path.join(output_directory, 'images')
+        os.makedirs(images_dir)
+
+    # Generate pngs
+    print(f'\nGenerating png images spawning {num_processes} processes...')
+    dicom_to_png_fix_out = partial(dicom_to_png, output_directory = images_dir)
+    with Pool(num_processes) as pool:
+        pool.map(dicom_to_png_fix_out, dcm_path_list)
+    print('Done!\n')
     
 
 if __name__ == "__main__":
@@ -389,12 +438,11 @@ if __name__ == "__main__":
 
     # add_dcm_extension('../data_cro/dicom_CRO_23072019/anon')
 
-    base_exam_list, exam_error_list = cro_dicom_scrapper(args.input_data_folder, args.output_data_folder, 12, False, 10)
+    # base_exam_list, exam_error_list = cro_dicom_scrapper(args.input_data_folder, args.output_data_folder)
+    base_exam_list = pickling.unpickle_from_file('../data_cro/dicom_CRO_23072019/sample_data/base_exam_list.pkl')
 
+    exam_list = generate_exam_list(base_exam_list, args.output_data_folder)
 
-    # exam_not_four_list = pickling.unpickle_from_file(os.path.join(args.output_data_folder, 'exam_not_four_list.pkl'))
-    # print(exam_not_four_list)
-    # exams_not_four(exam_not_four_list, args.input_data_folder, args.output_data_folder, 12, True, 10) 
-
-    # exam_list = generate_exam_single_list('./sample_data/exam_list_before_cropping.pkl', 'L-CC')
-    # print(f'exam single list dicom_to_png: {exam_list}')
+    images_from_exam_list(exam_list, args.input_data_folder, os.path.join(args.output_data_folder, 'images'),
+                            bitdepth = 12, num_processes = 10 )
+    

@@ -159,7 +159,6 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
     Each subdirectory corresponds to a single exam.
     
     The names of the .dcm files (usually random) are renamed to match the metadata information.
-    It also provides the option to generate the png files. The png are generated in parallel.
 
     :param input_directory: path to the directory containig exams
     :param output_directory: path to the directory where to put the images and metadata
@@ -188,11 +187,8 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
     # list of exams with errors in the images
     exam_error_list = []
 
-    # list of exams with more or less than 4 images (one per view)
-    exam_not_four_list = []
-    
     # exam_list compatible with the one required by NYU's 2019 algorithm
-    exam_list = []
+    base_exam_list = []
     
     # dcm path list. Used for dcm_to_png in parallel
     dcm_path_list = []
@@ -203,14 +199,9 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
         # if the entry is a directory we asume it is an exam and look for the dcm images inside.
         if os.path.isdir(full_path):
             exam_dcm_paths = _get_dicom_files(full_path)
-            exam_dict = {'horizontal_flip': '', 'L-CC': [], 'L-MLO': [], 'R-MLO': [], 'R-CC': []}
+            base_exam_dict = {'horizontal_flip': '', 'L-CC': [], 'L-MLO': [], 'R-MLO': [], 'R-CC': [], 'num_images': 0}
             exam_id = ''
 
-            # If there are less or more than 4 images don't use it
-            # In the future we should handle more than 4 images
-            # if not len(exam_dcm_paths) == 4:
-            #     exam_error_list.append(entry)
-            #     continue
 
             for dcm_file in exam_dcm_paths:
                 ds = pydicom.dcmread(dcm_file)
@@ -234,11 +225,11 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
                         break
                 
                 # Check horizontal_flip for all dcm
-                if not exam_dict['horizontal_flip']:
-                    exam_dict['horizontal_flip'] = horizontal_flip
+                if not base_exam_dict['horizontal_flip']:
+                    base_exam_dict['horizontal_flip'] = horizontal_flip
                 else:
-                    # assert exam_dict['horizontal_flip'] == horizontal_flip , "Horizontal flip is not the same for every image in exam " + entry
-                    if not exam_dict['horizontal_flip'] == horizontal_flip:
+                    # assert base_exam_dict['horizontal_flip'] == horizontal_flip , "Horizontal flip is not the same for every image in exam " + entry
+                    if not base_exam_dict['horizontal_flip'] == horizontal_flip:
                         exam_error_list.append(entry)
                         break
 
@@ -253,9 +244,16 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
                 view = laterality + '-' + view_angle
                 label = exam_id + '_' + laterality + '_' + view_angle
                 
-                if exam_dict[view]:
-                    label += '_' + str(len(exam_dict[view]))
-                exam_dict[view].append(label)
+                # At this point the image passed all checks
+                # It is now added to the corresponding exam_list_all[view]
+
+                # if more than one image per view, add a _num to filename
+                if base_exam_dict[view]:
+                    label += '_' + str(len(base_exam_dict[view]))
+                base_exam_dict[view].append(label)
+
+                # base_exam_dict num_images increases by one
+                base_exam_dict['num_images'] += 1
 
                 # rename the dicom images to match the names in exam_list
                 dcm_file_new_name = os.path.join(os.path.dirname(dcm_file), label + '.dcm')
@@ -264,73 +262,68 @@ def cro_dicom_scrapper(input_directory, output_directory, bitdepth = 12, generat
 
 
             else:
-                for key in exam_dict.keys():
-                    if not key:
-                        exam_error_list.append(entry)
-                        break
-                if not len(exam_dcm_paths) == 4:
-                    exam_not_four_list.append(exam_dict)
-                else:
-                    exam_list.append(exam_dict)
-                    dcm_path_list += exam_dcm_paths
+                all_list.append(base_exam_dict)
+                dcm_path_list += exam_dcm_paths
 
     
     # saving lists:
     exam_list_path = os.path.join(output_directory, 'exam_list_before_cropping.pkl')
-    exam_not_four_list_path = os.path.join(output_directory, 'exam_not_four_list.pkl')
     exam_error_list_path = os.path.join(output_directory, 'exam_error_list.pkl')
 
-    pickling.pickle_to_file(exam_list_path, exam_list)
-    pickling.pickle_to_file(exam_not_four_list_path, exam_not_four_list)
-    pickling.pickle_to_file(exam_error_list_path, exam_error_list)
+    # pickling.pickle_to_file(exam_list_path, base_exam_list)
+    # pickling.pickle_to_file(exam_error_list_path, exam_error_list)
 
 
     print('\n########################################')
-    print(f'Exams without errors: \n {len(exam_list)}')
-    print(f'Exams with less/more Dicom images: \n {len(exam_not_four_list)}')
+    print(f'Exams without errors: \n {len(base_exam_list)}')
+    # print(f'Exams with less/more Dicom images: \n {len(exam_not_four_list)}')
     print(f'Exams with error in Dicom images: \n {len(exam_error_list)}')
     print('########################################\n')
     print('Done!\n')
 
-
-    # Generate pngs
-    if generate_png:
-        print(f'\nGenerating png images spawning {num_processes} processes...')
-        dicom_to_png_fix_out = partial(dicom_to_png, output_directory = images_dir)
-        with Pool(num_processes) as pool:
-            pool.map(dicom_to_png_fix_out, dcm_path_list)
-        print('Done!\n')
-    return exam_list, exam_not_four_list, exam_error_list
+    return base_exam_list, exam_error_list
 
 
-    
-
-def generate_exam_single_list(exam_list_path, view):
+def generate_exam_list(base_exam_list, output_directory = 'sample_data', output_filename = 'exam_list_before_cropping'):
     """
-    Generate an exam list for a single view, e.g. 'L-CC',
-    from the original exam list that includes all views.
-    This exam_list is the one generated by cro_dicom_scrapper and 
-    it is called 'exam_list_before_cropping.pkl' by convention.
-
-    :param exam_list_path: path to the full exam_list. By default called 'exam_list_before_cropping.pkl'
+    Generate an exam list for the four view classifier 
+    from the base exam list that include all exams with additional fields per exam.
     """
-    assert view in ['L-CC', 'R-CC', 'L-MLO', 'R-MLO'], 'Wrong view'
-    exam_list = pickling.unpickle_from_file(exam_list_path)
-    print(exam_list)
-    exam_single_list = []
-    for exam in exam_list:
-        exam_single = {}
-        exam_single['short_file_path'] = exam[view][0].replace('-','_')
-        exam_single['horizontal_flip'] = exam['horizontal_flip']
-        exam_single['full_view'] = view
-        exam_single['side'] = view[0]
-        exam_single['view'] = view[2:]
-        exam_single_list.append(exam_single)
 
-    output_path = os.path.join(os.path.dirname(exam_list_path), 'exam_single_list_before_cropping.pkl')
-    pickling.pickle_to_file(output_path, exam_single_list)
-    return exam_single_list
+    exam_list_path = os.path.join(output_directory, output_filename + '.pkl')
 
+    # Prevents overwriting an existing file
+    if os.path.isfile(exam_list_path):
+        print("Error: an exam list file with that name already exists.")
+        return
+    else:
+        # Check if output_directory exists, if not, creates it.
+        os.makedirs(output_directory, exist_ok=True)
+        
+    exam_list = []
+    exam_keys = ['horizontal_flip', 'L-CC', 'L-MLO', 'R-MLO', 'R-CC']
+
+    for base_exam in base_exam_list:
+        if base_exam['num_images'] == 4:
+            # filter the fields from base_exam to match exam_keys as required by NYU classifier algorithm. 
+            exam = {k:v for k,v in base_exam if k in exam_keys}
+            exam_list.append(exam)
+            print(exam)
+
+    # save exam_list in output_directory
+    pickling.pickle_to_file(exam_list_path, exam_list)
+
+    return exam_list
+
+
+def generate_exam_single_list(base_exam_list, view, output_directory = 'sample_data', output_filename = 'exam_single_list_before_cropping'):
+    """
+    Generate an exam list for the single view classifier
+    from the base_exam_list that includes all views and additional information.
+
+    :param base_exam_list: base exam list. The exams in that list can have more than one view and additional fields.
+                            
+    """
 
     # metadata_dict = dict(
     #     short_file_path=None,
@@ -340,6 +333,54 @@ def generate_exam_single_list(exam_list_path, view):
     #     view=view[2:],
     # )
 
+    # TBI: handle multiple images of the same view per exam.
+
+    exam_list_path = os.path.join(output_directory, output_filename + '.pkl')
+
+    # Prevents overwriting an existing file
+    if os.path.isfile(exam_list_path):
+        print("Error: an exam list file with that name already exists.")
+        return
+    else:
+        # Check if output_directory exists, if not, creates it.
+        os.makedirs(output_directory, exist_ok=True)
+    
+
+    assert view in ['L-CC', 'R-CC', 'L-MLO', 'R-MLO'], 'Wrong view'
+    # exam_list = pickling.unpickle_from_file(exam_list_path)
+    print(base_exam_list)
+    exam_single_list = []
+    for base_exam in base_exam_list:
+        if base_exam[view]:
+            exam_single = {}
+            exam_single['short_file_path'] = base_exam[view][0].replace('-','_')
+            exam_single['horizontal_flip'] = base_exam['horizontal_flip']
+            exam_single['full_view'] = view
+            exam_single['side'] = view[0]
+            exam_single['view'] = view[2:]
+            exam_single_list.append(exam_single)
+
+    # save exam_list in output_directory
+    pickling.pickle_to_file(exam_list_path, exam_list)
+
+    output_directory = os.path.join(os.path.dirname(exam_list_path), 'exam_single_list_before_cropping.pkl')
+    pickling.pickle_to_file(output_directory, exam_single_list)
+    return exam_single_list
+
+
+def images_from_exam_list(exam_list, output_directory = os.path.join('sample_data', 'images')):
+        # It also provides the option to generate the png files. The png are generated in parallel.
+
+
+    # # Generate pngs
+    # if generate_png:
+    #     print(f'\nGenerating png images spawning {num_processes} processes...')
+    #     dicom_to_png_fix_out = partial(dicom_to_png, output_directory = images_dir)
+    #     with Pool(num_processes) as pool:
+    #         pool.map(dicom_to_png_fix_out, dcm_path_list)
+    #     print('Done!\n')
+    
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Transform CRO DICOM images to PNG as downloaded from Ambra web interface.')
     parser.add_argument('-i', '--input-data-folder', help="Folder containing DICOM images. \n", required=True)
@@ -348,12 +389,12 @@ if __name__ == "__main__":
 
     # add_dcm_extension('../data_cro/dicom_CRO_23072019/anon')
 
-    exam_list, exam_not_four_list, exam_error_list = cro_dicom_scrapper(args.input_data_folder, args.output_data_folder, 12, False, 10)
+    base_exam_list, exam_error_list = cro_dicom_scrapper(args.input_data_folder, args.output_data_folder, 12, False, 10)
 
 
-    exam_not_four_list = pickling.unpickle_from_file(os.path.join(args.output_data_folder, 'exam_not_four_list.pkl'))
+    # exam_not_four_list = pickling.unpickle_from_file(os.path.join(args.output_data_folder, 'exam_not_four_list.pkl'))
     # print(exam_not_four_list)
-    exams_not_four(exam_not_four_list, args.input_data_folder, args.output_data_folder, 12, True, 10) 
+    # exams_not_four(exam_not_four_list, args.input_data_folder, args.output_data_folder, 12, True, 10) 
 
     # exam_list = generate_exam_single_list('./sample_data/exam_list_before_cropping.pkl', 'L-CC')
     # print(f'exam single list dicom_to_png: {exam_list}')

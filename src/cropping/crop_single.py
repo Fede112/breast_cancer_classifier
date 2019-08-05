@@ -60,7 +60,7 @@ def crop_single_mammogram(metadata_dict, mammogram_path, cropped_mammogram_path,
     return metadata_dict
 
 
-def crop_all_single_mammogram(input_data_folder, exam_list_path, cropped_exam_list_path, output_data_folder,
+def crop_all_single_mammograms(input_data_folder, exam_list_path, cropped_exam_list_path, output_data_folder,
                 num_processes, num_iterations, buffer_size):
     
     # list of exams (one dictionary per exam)
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     parser.add_argument('--buffer-size', default=50, type=int)
     args = parser.parse_args()
     
-    crop_all_single_mammogram(
+    crop_all_single_mammograms(
         input_data_folder=args.input_data_folder, 
         exam_list_path=args.exam_list_path, 
         cropped_exam_list_path=args.cropped_exam_list_path, 

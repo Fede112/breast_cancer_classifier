@@ -270,7 +270,6 @@ def crop_mammogram(input_data_folder, exam_list_path, cropped_exam_list_path, ou
     # list of exams (one dictionary per exam)
     exam_list = pickling.unpickle_from_file(exam_list_path)
     
-    print(exam_list)
     # list per image (one dictionary per image). It contains same information than in list of exams + cropped information if present.
     image_list = data_handling.unpack_exam_into_images(exam_list)
     
@@ -294,10 +293,8 @@ def crop_mammogram(input_data_folder, exam_list_path, cropped_exam_list_path, ou
     # F: cropped image info returns a list. Each entry is the return of a single execution
     # F: of crop_mammogram_one_image_func.
     
-    print(cropped_image_info)
     # F: each dict defined contains the information of all images
     window_location_dict = dict([x[0] for x in cropped_image_info])
-    # print(window_location_dict)
     rightmost_points_dict = dict([x[1] for x in cropped_image_info])
     bottommost_points_dict = dict([x[2] for x in cropped_image_info])
     distance_from_starting_side_dict = dict([x[3] for x in cropped_image_info])
@@ -351,7 +348,6 @@ def crop_mammogram_one_image(scan, input_file_path, output_file_path, num_iterat
         except Exception as error:
             print(input_file_path, "\n\tError while saving image.", str(error))
 
-        print(cropping_info)
         return cropping_info
 
 

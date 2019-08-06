@@ -16,7 +16,6 @@ import sys
 ####
 ## Temporary addition to find src file (if called from bash: export PYTHONPATH=$(pwd):$PYTHONPATH)
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# print(sys.path)
 # appending parent dir of current_dir to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(current_dir)))
 # print(sys.path)
@@ -27,20 +26,6 @@ import src.utilities.reading_images as reading_images
 import src.utilities.saving_images as saving_images
 import src.utilities.data_handling as data_handling
 
-
-
-# def save_dicom_image_as_png(dicom_filename, png_filename, bitdepth=12):
-#     """
-#     Save 12-bit mammogram from dicom as rescaled 16-bit png file.
-#     :param dicom_filename: path to input dicom file.
-#     :param png_filename: path to output png file.
-#     :param bitdepth: bit depth of the input image. Set it to 12 for 12-bit mammograms.
-#     """
-#     image = pydicom.read_file(dicom_filename).pixel_array
-#     with open(png_filename, 'wb') as f:
-#         writer = png.Writer(height=image.shape[0], width=image.shape[1], bitdepth=bitdepth, greyscale=True)
-#         writer.write(f, image.tolist())
-  
 
 
 
@@ -128,6 +113,7 @@ def exams_not_four(exam_list, input_directory, output_directory, bitdepth = 12, 
 
 def _get_dicom_files(dir_name):
     """
+    Auxilary function used in cro_dicom_scrapper
     returns a list with the full path of each dcm file in the directory tree 
     """
     # create a list of file and sub directories in the given directory 
@@ -151,8 +137,10 @@ def _get_dicom_files(dir_name):
 
 def cro_dicom_scrapper(input_directory, output_directory):
     """
-    It finds all the .dcm images inside the input_directory and generates the corresponding metadata
-    needed to run the NYU Classification algorithm. If the exam has any error of labels or formatting it is skipped.
+    It finds all the .dcm images inside the input_directory and generates the a base metadata for each exam.
+    From this base_exam_list you can generate the metadata needed to run the NYU Classification algorithm, both
+    single view an four view model. 
+    If the exam has any error of labels or formatting it is skipped.
 
     The structure of the input_directory should be as follows:
     input_directory/exam1/ ; input_directory/exam2/ ; input_directory/exam3/ 
@@ -253,11 +241,12 @@ def cro_dicom_scrapper(input_directory, output_directory):
                 # base_exam_dict num_images increases by one
                 base_exam_dict['num_images'] += 1
 
+
+
                 # rename the dicom images to match the names in exam_list
                 dcm_file_new_name = os.path.join(os.path.dirname(dcm_file), label + '.dcm')
                 os.rename(dcm_file, dcm_file_new_name)
                 dcm_file = dcm_file_new_name
-
 
             else:
                 base_exam_list.append(base_exam_dict)
@@ -301,14 +290,20 @@ def generate_exam_list(base_exam_list, output_directory = 'sample_data', output_
     exam_keys = ['horizontal_flip', 'L-CC', 'L-MLO', 'R-MLO', 'R-CC']
 
 
+    # check if base_exam has one image per view
     equal_four = 0
     for base_exam in base_exam_list:
-        if base_exam['num_images'] == 4:
-            # filter the fields from base_exam to match exam_keys as required by NYU classifier algorithm. 
-            exam = {k:v for k,v in base_exam.items() if k in exam_keys}
-            exam_list.append(exam)
-            # print(exam)
-            equal_four += 1
+        for k, v in base_exam.items():
+            if not v:
+                # print(base_exam)
+                break
+        else:
+            if base_exam['num_images'] == 4:
+                # filter the fields from base_exam to match exam_keys as required by NYU classifier algorithm. 
+                exam = {k:v for k,v in base_exam.items() if k in exam_keys}
+                exam_list.append(exam)
+                # print(exam)
+                equal_four += 1
 
     print(f'exams with four images: {equal_four}')
 
@@ -318,13 +313,13 @@ def generate_exam_list(base_exam_list, output_directory = 'sample_data', output_
     return exam_list
 
 
-def generate_exam_single_list(base_exam_list, view, output_directory = 'sample_data', output_filename = 'exam_single_list_before_cropping'):
+def generate_exam_single_list(base_exam_list, output_directory = 'sample_data', output_filename = 'exam_single_list_before_cropping', view = 'L-CC'):
     """
     Generate an exam list for the single view classifier
     from the base_exam_list that includes all views and additional information.
 
     :param base_exam_list: base exam list. The exams in that list can have more than one view and additional fields.
-                            
+                                
     """
 
     # metadata_dict = dict(
@@ -363,21 +358,18 @@ def generate_exam_single_list(base_exam_list, view, output_directory = 'sample_d
             exam_single_list.append(exam_single)
 
     # save exam_list in output_directory
-    pickling.pickle_to_file(exam_list_path, exam_list)
+    pickling.pickle_to_file(exam_list_path, exam_single_list)
 
-    output_directory = os.path.join(os.path.dirname(exam_list_path), 'exam_single_list_before_cropping.pkl')
-    pickling.pickle_to_file(output_directory, exam_single_list)
     return exam_single_list
 
 
-def _generate_dcm_path_list(exam_list, input_directory, output_directory):
+def _generate_dcm_path_list(exam_list, input_directory):
     """
-    Auxiliary function to generate the dcm path list for the particular exam_list.
+    Auxiliary function to generate the dcm path list for a particular exam_list. It is used in image_from_exam_list().
     Because exam_single_dict doesn't share the same structure than regular exams dictionaries we
     need to force the user to specify if the exam is unique or not.
 
     :param input_directory: path to the directory containig dicom files. One directory per exam.
-    :param output_directory: path to the directory where to put the images
     """
 
     # TBI: merge single view with four view exams dictionaries. This would imply diverging too much
@@ -390,13 +382,11 @@ def _generate_dcm_path_list(exam_list, input_directory, output_directory):
     else:
         lookup_keys = ['short_file_path']
     for exam in exam_list:
-        # temp = [os.path.join(input_directory,v[0]+'.dcm') for k,v in exam.items() if k in lookup_keys]
-        # dcm_path_list += temp
-        print(exam)
-        for k,v in exam.items():
-            if k in lookup_keys:
-                print(v[0]) 
+        temp = [    os.path.join( input_directory, filename[:filename.find('_')], filename+'.dcm' ) 
+                for k,filename in exam.items() if k in lookup_keys  ]
 
+        dcm_path_list += temp
+        
     return dcm_path_list
 
 
@@ -406,9 +396,14 @@ def images_from_exam_list(exam_list, input_directory, output_directory = os.path
     Generate png images from an exam list.
     The default output_directory is ./sample_data/images/
     The png are generated in parallel.
+
+    :param input_directory: path to the directory containig dicom files. One directory per exam.
+    :param output_directory: path to the directory where to put the images
+
     """   
 
-    dcm_path_list = _generate_dcm_path_list(exam_list, input_directory, output_directory)
+    dcm_path_list = _generate_dcm_path_list(exam_list, input_directory)
+    print(dcm_path_list)
 
 
     # Create folder were to store .pngs and metadata
@@ -419,12 +414,13 @@ def images_from_exam_list(exam_list, input_directory, output_directory = os.path
         return
     else:
         os.makedirs(output_directory)
-        images_dir = os.path.join(output_directory, 'images')
-        os.makedirs(images_dir)
+        # output_directory = os.path.join(output_directory, 'images')
+        # os.makedirs(output_directory)
+
 
     # Generate pngs
     print(f'\nGenerating png images spawning {num_processes} processes...')
-    dicom_to_png_fix_out = partial(dicom_to_png, output_directory = images_dir)
+    dicom_to_png_fix_out = partial(dicom_to_png, output_directory = output_directory)
     with Pool(num_processes) as pool:
         pool.map(dicom_to_png_fix_out, dcm_path_list)
     print('Done!\n')
@@ -439,10 +435,27 @@ if __name__ == "__main__":
     # add_dcm_extension('../data_cro/dicom_CRO_23072019/anon')
 
     # base_exam_list, exam_error_list = cro_dicom_scrapper(args.input_data_folder, args.output_data_folder)
+
+    
+    ###########
+    # FOUR VIEW
+
+    # base_exam_list = pickling.unpickle_from_file('../data_cro/dicom_CRO_23072019/sample_data/base_exam_list.pkl')
+
+    # exam_list = generate_exam_list(base_exam_list, args.output_data_folder)
+
+    # images_dir = os.path.join(args.output_data_folder, 'images')
+    # images_from_exam_list(exam_list, args.input_data_folder, images_dir, bitdepth = 12, num_processes = 10 )
+    
+
+    #############
+    # SINGLE VIEW
+
     base_exam_list = pickling.unpickle_from_file('../data_cro/dicom_CRO_23072019/sample_data/base_exam_list.pkl')
 
-    exam_list = generate_exam_list(base_exam_list, args.output_data_folder)
+    exam_single_list = generate_exam_single_list(base_exam_list, args.output_data_folder, view = 'L-CC')
 
-    images_from_exam_list(exam_list, args.input_data_folder, os.path.join(args.output_data_folder, 'images'),
-                            bitdepth = 12, num_processes = 10 )
+    print(exam_single_list)
+    images_dir = os.path.join(args.output_data_folder, 'images_single')
+    images_from_exam_list(exam_single_list, args.input_data_folder, images_dir, bitdepth = 12, num_processes = 10 )
     

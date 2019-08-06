@@ -1,8 +1,8 @@
 #!/bin/bash
 
-NUM_PROCESSES=3
+NUM_PROCESSES=10
 DEVICE_TYPE='cpu'
-NUM_EPOCHS=4
+NUM_EPOCHS=1
 HEATMAP_BATCH_SIZE=100
 GPU_NUMBER=0
 
@@ -13,16 +13,16 @@ IMAGEHEATMAPS_MODEL_PATH='models/ImageHeatmaps__ModeImage_weights.p'
 # SAMPLE_SINGLE_OUTPUT_PATH='sample_single_output'
 
 # initial files
-INITIAL_EXAM_LIST_PATH='sample_data/exam_single_list_before_cropping.pkl'
-DATA_FOLDER='sample_data/images'
+INITIAL_EXAM_LIST_PATH='../data_cro/dicom_CRO_23072019/sample_data/exam_single_list_before_cropping.pkl'
+DATA_FOLDER='../data_cro/dicom_CRO_23072019/sample_data/images_single'
 
 #cropped files
-CROPPED_EXAM_LIST_PATH='sample_single_output/cropped_images/cropped_exam_single_list.pkl'
-CROPPED_IMAGE_PATH='sample_single_output/cropped_images'
-EXAM_LIST_PATH='sample_single_output/data.pkl'
+CROPPED_EXAM_LIST_PATH='../data_cro/dicom_CRO_23072019/sample_single_output/cropped_images/cropped_exam_single_list.pkl'
+CROPPED_IMAGE_PATH='../data_cro/dicom_CRO_23072019/sample_single_output/cropped_images'
+EXAM_LIST_PATH='../data_cro/dicom_CRO_23072019/sample_single_output/data.pkl'
 
 # output files
-IMAGE_PREDICTIONS_PATH='sample_single_output/image_predictions.csv'
+IMAGE_PREDICTIONS_PATH='../data_cro/dicom_CRO_23072019/sample_single_output/image_predictions.csv'
 # IMAGEHEATMAPS_PREDICTIONS_PATH='sample_output/imageheatmaps_predictions.csv'
 
 
@@ -81,7 +81,7 @@ python3 src/modeling/run_model_single.py \
     --num-epochs $NUM_EPOCHS \
     --device-type $DEVICE_TYPE \
     --gpu-number $GPU_NUMBER \
-    --batch-size 2
+    --batch-size 1
 
 # echo 'Stage 4b: Run Classifier (Image+Heatmaps)'
 # python3 src/modeling/run_model_single.py \

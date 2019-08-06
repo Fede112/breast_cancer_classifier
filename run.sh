@@ -1,23 +1,23 @@
 #!/bin/bash
 
-NUM_PROCESSES=3
+NUM_PROCESSES=10
 DEVICE_TYPE='cpu'
-NUM_EPOCHS=3
+NUM_EPOCHS=10
 HEATMAP_BATCH_SIZE=100
 GPU_NUMBER=0
 
-DATA_FOLDER='sample_data/images'
-INITIAL_EXAM_LIST_PATH='sample_data/exam_list_before_cropping.pkl'
+DATA_FOLDER='../data_cro/dicom_CRO_23072019/sample_data/images'
+INITIAL_EXAM_LIST_PATH='../data_cro/dicom_CRO_23072019/sample_data/exam_list_before_cropping.pkl'
 PATCH_MODEL_PATH='models/sample_patch_model.p'
 IMAGE_MODEL_PATH='models/sample_image_model.p'
 IMAGEHEATMAPS_MODEL_PATH='models/sample_imageheatmaps_model.p'
 
-CROPPED_IMAGE_PATH='sample_output/cropped_images'
-CROPPED_EXAM_LIST_PATH='sample_output/cropped_images/cropped_exam_list.pkl'
-EXAM_LIST_PATH='sample_output/data.pkl'
-HEATMAPS_PATH='sample_output/heatmaps'
-IMAGE_PREDICTIONS_PATH='sample_output/image_predictions.csv'
-IMAGEHEATMAPS_PREDICTIONS_PATH='sample_output/imageheatmaps_predictions.csv'
+CROPPED_IMAGE_PATH='../data_cro/dicom_CRO_23072019/sample_output/cropped_images'
+CROPPED_EXAM_LIST_PATH='../data_cro/dicom_CRO_23072019/sample_output/cropped_images/cropped_exam_list.pkl'
+EXAM_LIST_PATH='../data_cro/dicom_CRO_23072019/sample_output/data.pkl'
+HEATMAPS_PATH='../data_cro/dicom_CRO_23072019/sample_output/heatmaps'
+IMAGE_PREDICTIONS_PATH='../data_cro/dicom_CRO_23072019/sample_output/image_predictions.csv'
+IMAGEHEATMAPS_PREDICTIONS_PATH='../data_cro/dicom_CRO_23072019/sample_output/imageheatmaps_predictions.csv'
 export PYTHONPATH=$(pwd):$PYTHONPATH
 
 echo 'Stage 1: Crop Mammograms'
@@ -37,29 +37,29 @@ python3 src/cropping/crop_mammogram.py \
 #     --num-processes $NUM_PROCESSES
 
 # echo 'Stage 3: Generate Heatmaps'
-# python3 src/heatmaps/run_producer.py \
-#     --model-path $PATCH_MODEL_PATH \
-#     --data-path $EXAM_LIST_PATH \
-#     --image-path $CROPPED_IMAGE_PATH \
-#     --batch-size $HEATMAP_BATCH_SIZE \
-#     --output-heatmap-path $HEATMAPS_PATH \
-#     --device-type $DEVICE_TYPE \
-#     --gpu-number $GPU_NUMBER
+python3 src/heatmaps/run_producer.py \
+    --model-path $PATCH_MODEL_PATH \
+    --data-path $EXAM_LIST_PATH \
+    --image-path $CROPPED_IMAGE_PATH \
+    --batch-size $HEATMAP_BATCH_SIZE \
+    --output-heatmap-path $HEATMAPS_PATH \
+    --device-type $DEVICE_TYPE \
+    --gpu-number $GPU_NUMBER
 
 
 # F: --model-path: sample_image_model.p:
 # F: --data-path: output-exam-list-path after extracting centers:
 # F: --output-path: image prediction as csv:
 # echo 'Stage 4a: Run Classifier (Image)'
-# python3 src/modeling/run_model.py \
-#     --model-path $IMAGE_MODEL_PATH \
-#     --data-path $EXAM_LIST_PATH \
-#     --image-path $CROPPED_IMAGE_PATH \
-#     --output-path $IMAGE_PREDICTIONS_PATH \
-#     --use-augmentation \
-#     --num-epochs $NUM_EPOCHS \
-#     --device-type $DEVICE_TYPE \
-#     --gpu-number $GPU_NUMBER 
+python3 src/modeling/run_model.py \
+    --model-path $IMAGE_MODEL_PATH \
+    --data-path $EXAM_LIST_PATH \
+    --image-path $CROPPED_IMAGE_PATH \
+    --output-path $IMAGE_PREDICTIONS_PATH \
+    --use-augmentation \
+    --num-epochs $NUM_EPOCHS \
+    --device-type $DEVICE_TYPE \
+    --gpu-number $GPU_NUMBER 
 
 # echo 'Stage 4b: Run Classifier (Image+Heatmaps)'
 # python3 src/modeling/run_model.py \

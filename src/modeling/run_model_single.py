@@ -194,22 +194,37 @@ def run(data_path, output_path, parameters):
 
 
     # concatenate all the outputs we saved to get the the activations for each layer for the whole dataset
-    activations = {name: torch.cat(outputs, 0) for name, outputs in activations.items() if outputs}
+    # activations = {name: torch.cat(outputs, 0) for name, outputs in activations.items() if outputs}
+    activations_path = os.path.join(os.path.dirname(output_path), 'activations')
+
+    if os.path.exists(activations_path):
+        # Prevent overwriting to an existing directory
+        print("Error: the directory to save the activations already exists.")
+        return
+    else:
+        os.makedirs(activations_path)
+
+
+    for name, outputs in activations.items():
+        if outputs:
+            file_path = os.path.join(activations_path ,name + '.pkl')
+            with open(file_path,'wb') as file: 
+                np.save(file, torch.cat(outputs, 0).numpy())
+                outputs = []
+
 
     # print activation size just as a check
-    for k,v in activations.items():
-        print (k, v.size())
-        print (k, v.is_cuda)
+    # for k,v in activations.items():
+    #     print (k, v.size())
+    #     print (k, v.is_cuda)
+
 
     # save activations
-    activations_path = os.path.dirname(output_path) + 'activations'
-    tools.save_activations(activations, activations_path)
-    test = tools.load_activations(activations_path)
-    print([val.shape for val in test.values()])
+    # tools.save_activations(activations, activations_path)
+    # tools.save_activations(activations, 'test_activation')
+    # test = tools.load_activations('test_activation')
+    # print([val.shape for val in test.values()])
 
-    # save predictions
-    df = pd.DataFrame(predictions)
-    df.to_csv(output_path, index=False, float_format='%.4f')
 
 
 def main():

@@ -49,18 +49,15 @@ def get_optimal_center_single(metadata, cropped_mammogram_path):
 def get_all_optimal_center_single(cropped_exam_list_path, cropped_image_path, output_exam_list_path, num_processes=1):
     exam_single_list = pickling.unpickle_from_file(cropped_exam_list_path)
 
-    print(exam_single_list)
     get_optimal_center_single_func = partial(
         get_optimal_center_single,
         cropped_mammogram_path=cropped_image_path,
     )
 
-    print(num_processes)
     with Pool(num_processes) as pool:
         exam_single_list = pool.map(get_optimal_center_single_func, exam_single_list)
 
     os.makedirs(os.path.dirname(output_exam_list_path), exist_ok=True)
-    print(exam_single_list)
     pickling.pickle_to_file(output_exam_list_path, exam_single_list)
 
 

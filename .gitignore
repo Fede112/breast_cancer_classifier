@@ -7,3 +7,5 @@ sample_output/
 *.png
 dicom_CRO/
 *.pkl
+*.db
+*csv

@@ -136,6 +136,8 @@ def run(data_path, output_path, parameters):
     # activation_dict = {name: torch.empty(output_shape) for name,output_shape in activation_dim_dict.items()} # {'resnet_out': torch.empty(out_shape)}
 
     activations = {'resnet_out': [], 'resblock_0': [], 'resblock_1': [], 'resblock_2': [], 'resblock_3': [], 'resblock_4': []}
+    # activations = {'resnet_out': []}
+    
     handle_out = model.all_views_avg_pool.register_forward_hook(tools.get_activation(activations, 'resnet_out'))
     # model.view_resnet.layer_list[i][j].conv2 : we are selecting from resnet layer i , block j 
     handle_0 = model.view_resnet.layer_list[0][1].conv2.register_forward_hook(tools.get_activation(activations, 'resblock_0'))
@@ -149,6 +151,7 @@ def run(data_path, output_path, parameters):
     with torch.no_grad():
         predictions_ls=[]
         for datum in tqdm(exam_list):
+            print(f'exam: {datum}')
             predictions_for_datum = []
             image_path = os.path.join(parameters["cropped_mammogram_path"], datum['short_file_path'] + '.png')
             model_input = load_inputs(
@@ -198,10 +201,15 @@ def run(data_path, output_path, parameters):
         print (k, v.size())
         print (k, v.is_cuda)
 
-    tools.save_activations(activations, 'test_activation')
-    test = tools.load_activations('test_activation')
+    # save activations
+    activations_path = os.path.dirname(output_path) + 'activations'
+    tools.save_activations(activations, activations_path)
+    test = tools.load_activations(activations_path)
     print([val.shape for val in test.values()])
 
+    # save predictions
+    df = pd.DataFrame(predictions)
+    df.to_csv(output_path, index=False, float_format='%.4f')
 
 
 def main():

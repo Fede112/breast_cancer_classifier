@@ -17,7 +17,6 @@ from src.analysis import stats
 # import src.utilities.reading_images as reading_images
 
 
-# tools.cumsum_sample()
 
 ####################################
 # Input checks
@@ -37,28 +36,7 @@ from src.analysis import stats
 
 
 
-####################################
-# Load data exam_list and predictions from model
-####################################
 
-# # data_path = '../sample_output/data.pkl'
-# # pred_path = '../sample_output/image_predictions.csv'
-
-# # read exam_list from the NYU output. It is a list of dictionaries, one per exam.
-# with open(data_path, 'rb') as handle:
-#     exam_list_dict = pickle.load(handle)
-
-# # read predictions
-# pred_full = pd.read_csv(pred_path, sep=',')
-
-
-# exam_id_list = []
-# # substring = substring.replace("-", ' ')
-# for dic in exam_list_dict:
-#   exam_id_list.append( dic['L-CC'][0].split('_')[0] )
-
-
-# pred_full['exam_id'] = exam_id_list
 
 
 
@@ -67,35 +45,14 @@ from src.analysis import stats
 # Read reports from sqlite3 and extract labels
 ####################################
 
- 
-# def sql_connection():
- 
-#     try:
- 
-#         con = sqlite3.connect('../dicom_CRO_23072019/reports/reports_23072019.db')
- 
-#         return con
- 
-#     except Error:
- 
-#         print(Error)
- 
-# def sql_table(con):
- 
-#     cursorObj = con.cursor()
- 
-#     # cursorObj.execute("CREATE TABLE employees(id integer PRIMARY KEY, name text, salary real, department text, position text, hireDate text)")
-#     # cursorObj.execute('.tables')
- 
-#     con.commit()
- 
-# con = sql_connection()
- 
-# sql_table(con)
 
 
-
-class ReportsDB:
+class Reports:
+    """
+    Wrapper of reports sql database.
+    Allows extraction of birad label.
+    Allos extraction of additional keywords.
+    """
     def __init__(self, database_path):
 
         # Create your connection.
@@ -132,116 +89,64 @@ class ReportsDB:
         assert 'report' in colnames, 'report column missing in ' + table_name
 
         self.df = pd.read_sql_query("SELECT * FROM step3_img_report", conn)
+        # Add mandatory birad label
+        self.df['birads'] = None
+      
+        self.extract_birads()
+
         # look up keywords
-        self.keywords = ['RADS', 'intervento']
-        cursor.close()
+        self.keywords = []
+        
+        cursor.close() 
 
-    def search_keyword(self, keyword):
-        """
-        Searchs for keyword in each report.
-        Returns list of reports containing the keyword.
-        """
-        keyword_ls = []
-        for i,row in self.df.iterrows():
-          pat_id = row['patient_id']
-          study_uid = row['study_uid']
-          index = row['report'].find(keyword)
-          if index >=0:
-              keyword_ls.append((pat_id, study_uid))
-        return keyword_ls
-
-    def birad_label(self, keyword):
+    def extract_birads(self):
         """
         Searchs for the birad label in each report.
         Returns a list of tuple, one tuple per report.
         tuple: (pat_id, study_uid, birad)
         """
-        index = row['report'].find(key_word_1)
-        substring = row['report'][index:index+15]
+        for i,row in self.df.iterrows():
+
+            index = row['report'].find('RADS')
+            substring = row['report'][index:index+15]
+            # remove punctuations
+            substring = substring.translate(str.maketrans(string.punctuation, ' '*len(string.punctuation)))
+            # substring = substring.replace("-", ' ')
+            # substring = substring.replace(')', ' ')
+
+            # adhoc replaces based on what I saw in the data
+            substring = substring.replace('S', ' ')
+            substring = substring.replace('n', ' ')
+            substring = substring.replace('a', ' ')
+            substring = substring.replace('b', ' ')
+            substring = substring.replace('c', ' ')
+            birads = [int(s) for s in substring.split() if s.isdigit()]
+
+            if len(birads):
+                birads = sum(birads) / len(birads)
+                row['birads'] = birads
+          
 
 
+    def add_keyword(self, keyword):
+        self.keywords.append(keyword)
+        self.df[keyword] = None
 
-repdb = ReportsDB('../dicom_CRO_23072019/reports/reports_23072019.db')
-# print(repdb.df['report'][712])
-# print('')
-# print(repdb.df['report'][413])
+    def search_keywords(self):
+        """
+        Searchs for keyword in each report.
+        Returns list of reports containing the keyword.
+        """
 
+        # Add kw to df
+        for kw in self.keywords:
+            self.df[kw] = 0
 
-
-# print(repdb.df['report'][221])
-# print(repdb.df['report'][212])
-# print('')
-# print(repdb.df['report'][213])
-# print('')
-# print(repdb.df['report'][214])
-# print('')
-
-
-
-
-
-
-
-# # Create your connection.
-# conn = sqlite3.connect('../dicom_CRO_23072019/reports/reports_23072019.db')
-
-# # change encoding to latin. Default is utf-8
-# conn.text_factory = lambda x: str(x, 'latin1')
-# # conn.text_factory = bytes
-
-# # reads table and transforms it into dataframe
-# df = pd.read_sql_query("SELECT * FROM step3_img_report", conn)
-
-# # key_words to filter the reports
-# key_word_1 = 'RADS'
-# key_word_2 = 'intervento'
-
-# interv_list = []
-# birad_list = []
-
-# more_4 = 0
-# for i,row in df.iterrows():
-
-#   # pat_id = row['PZ'] 
-#   pat_id = row['patient_id'] 
-    
-#   # index = row['REPORT'].find(key_word_2)
-#   index = row['report'].find(key_word_2)
-#   if index >=0:
-#       interv_list.append((pat_id, 1))
-
-
-# #   # PI: loop to find all BI-RADS occurence in the report
-# #   # index = row['REPORT'].find(key_word_1)
-# #   # substring = row['REPORT'][index:index+15]
-#   index = row['report'].find(key_word_1)
-#   substring = row['report'][index:index+15]
-#   # remove punctuations
-#   substring = substring.translate(str.maketrans(string.punctuation, ' '*len(string.punctuation)))
-#   # substring = substring.replace("-", ' ')
-#   # substring = substring.replace(')', ' ')
-    
-#   # adhoc replaces based on what I saw in the data
-#   substring = substring.replace('S', ' ')
-#   substring = substring.replace('n', ' ')
-#   substring = substring.replace('a', ' ')
-#   substring = substring.replace('b', ' ')
-#   substring = substring.replace('c', ' ')
-#   birad = [int(s) for s in substring.split() if s.isdigit()]
-
-#   if len(birad):
-#       birad = sum(birad) / len(birad)
-#       birad_list.append((pat_id, birad))
-
-
-#       if (birad > 4):
-#           more_4 += 1
-
-
-# print(f'more than 4: {more_4}')
-# # print(birad_list)
-# print(f'birad_list len: {len(birad_list)}')
-
+        for i,row in self.df.iterrows():
+            for kw in self.keywords:
+                index = row['report'].find(kw)
+                if index >=0:
+                    self.df.at[i,kw] = 1
 
 
 
@@ -267,66 +172,7 @@ repdb = ReportsDB('../dicom_CRO_23072019/reports/reports_23072019.db')
 
 
 
-
-####################################
-# Plots
-####################################
-
-# label = 'malignant'
-# pred_1_2 = pred[ pred['birad'] < 2.5 ]['left_'+label] + pred[pred['birad'] < 2.5 ]['right_'+label]
-# pred_3_4 = pred[ (pred['birad'] >= 2.5) & (pred['birad'] < 4.5) ]['left_'+label] + pred[ (pred['birad'] >= 2.5) & (pred['birad'] < 4.5) ]['right_'+label]
-# pred_5_6 = pred[ pred['birad'] >= 4.5 ]['left_'+label] + pred[ pred['birad'] >= 4.5 ]['right_'+label]
-
-# pred_4_6 = pred[ pred['birad'] >= 3.5 ]['left_'+label] + pred[ pred['birad'] >= 3.5 ]['right_'+label]
-# pred_1_3 = pred[ pred['birad'] < 3.5 ]['left_'+label] + pred[ pred['birad'] < 3.5 ]['right_'+label]
-
-
-# sort_1_2, cumsum_1_2 = cumsum_sample(pred_1_2)
-# sort_3_4, cumsum_3_4 = cumsum_sample(pred_3_4)
-# sort_4_6, cumsum_4_6 = cumsum_sample(pred_4_6)
-# sort_1_3, cumsum_1_3 = cumsum_sample(pred_1_3)
-
-
-# # plot the sorted data:
-# fig = plt.figure()
-# ax1 = fig.add_subplot(121)
-# ax1.plot(sort_4_6, cumsum_4_6, '.-', label = 'BR 4-6')
-# ax1.plot(sort_1_2, cumsum_1_2, '.-',label = 'BR 1-2')
-# ax1.set_xlabel(label +' finding prob')
-# ax1.set_ylabel('$p$')
-# ax1.legend()
-
-
-# label = 'benign'
-# pred_1_2 = pred[pred['birad'] < 2.5 ]['left_'+label] + pred[pred['birad'] < 2.5 ]['right_'+label]
-# pred_3_4 = pred[ (pred['birad'] >= 2.5) & (pred['birad'] < 4.5) ]['left_'+label] + pred[ (pred['birad'] >= 2.5) & (pred['birad'] < 4.5) ]['right_'+label]
-# pred_5_6 = pred[ pred['birad'] >= 4.5 ]['left_'+label] + pred[ pred['birad'] >= 4.5 ]['right_'+label]
-# pred_4_6 = pred[ pred['birad'] >= 3.5 ]['left_'+label] + pred[ pred['birad'] >= 3.5 ]['right_'+label]
-# pred_1_3 = pred[ pred['birad'] < 3.5 ]['left_'+label] + pred[ pred['birad'] < 3.5 ]['right_'+label]
-
-
-# sort_1_2, cumsum_1_2 = cumsum_sample(pred_1_2)
-# sort_3_4, cumsum_3_4 = cumsum_sample(pred_3_4)
-# sort_4_6, cumsum_4_6 = cumsum_sample(pred_4_6)
-# sort_1_3, cumsum_1_3 = cumsum_sample(pred_1_3)
-
-
-# ax2 = fig.add_subplot(122)
-# ax2.plot(sort_4_6, cumsum_4_6, '.-', label = 'BR 4-6')
-# ax2.plot(sort_1_2, cumsum_1_2, '.-',label = 'BR 1-2')
-# ax2.set_xlabel(label + ' finding prob')
-# ax2.set_ylabel('$p$')
-# ax2.legend()
-
-
-# fig.suptitle(model + ' model')
-# plt.tight_layout()
-# fig.subplots_adjust(top=0.92)
-# plt.show()
-
-
-# if __name__ == "__main__":
-
+if __name__ == "__main__":
     # run example:
     # python read_reports_db.py -m '../sample_output/data.pkl' -p '../sample_output/image_predictions.csv' --model 'image-only'
 
@@ -340,3 +186,156 @@ repdb = ReportsDB('../dicom_CRO_23072019/reports/reports_23072019.db')
     # data_path = args.metadata_path
     # pred_path = args.predictions_path
     # model = args.model
+
+
+    ####################################
+    # Read reports
+    ####################################
+
+    reports = Reports('../dicom_CRO_23072019/reports/reports_23072019.db')
+
+    reports.add_keyword('interv')
+    print(reports.keywords)
+    reports.search_keywords()
+
+    print(reports.df.head(100))
+
+
+    ####################################
+    # Load data exam_list and predictions from model
+    ####################################
+
+    data_path = '../dicom_CRO_23072019/sample_output/data.pkl'
+    pred_path = '../dicom_CRO_23072019/sample_output/image_predictions.csv'
+
+    # read exam_list from the NYU output. It is a list of dictionaries, one per exam.
+    with open(data_path, 'rb') as handle:
+        exam_list_dict = pickle.load(handle)
+
+    # read predictions
+    pred_full = pd.read_csv(pred_path, sep=',')
+
+
+    exam_id_list = []
+    # substring = substring.replace("-", ' ')
+    for dic in exam_list_dict:
+      exam_id_list.append( dic['L-CC'][0].split('_')[0] )
+
+
+    pred_full['patient_id'] = exam_id_list
+
+
+    # for col in reports.df.columns: 
+    #     print(col) 
+
+
+    pred = pd.merge(pred_full,
+                 reports.df[['patient_id', 'birads', 'interv']], 
+                 on='patient_id')
+
+
+    # print(reports.df.where(reports.df['patient_id'] == pred_full['patient_id']).notna())
+
+
+    print(f'shared elements: {np.sum(pred_full.patient_id.isin(reports.df.patient_id).astype(int))}')
+
+
+    pred.head(10)
+
+    print(f'Number of Exams: {len(pred)}')
+
+    ####################################
+    # Plots
+    ####################################
+    model = 'L+R - Four view'
+    label = 'malignant'
+    
+    # Birads 1 or 1-2
+    birads_rest = pred[ pred['birads'] <= 3.5 ]['left_'+label] + pred[pred['birads'] <= 3.5 ]['right_'+label]
+
+    # Birads from 4 up
+    birads_4_6 = pred[ pred['birads'] > 4.5 ]['left_'+label] + pred[ pred['birads'] > 4.5 ]['right_'+label]
+
+
+    sort_rest, cumsum_rest = stats.cumsum_sample(birads_rest)
+    sort_4_6, cumsum_4_6 = stats.cumsum_sample(birads_4_6)
+
+
+    # plot the sorted data:
+    fig = plt.figure()
+    ax1 = fig.add_subplot(121)
+    ax1.plot(sort_4_6, cumsum_4_6, '.-', label = label + ' (BR 4,5,6)')
+    ax1.plot(sort_rest, cumsum_rest, '.-', label = 'not ' + label ) 
+    ax1.set_xlabel(label +' finding prob')
+    ax1.set_ylabel('$p$')
+    ax1.legend()
+
+
+    label = 'benign'
+    birads_rest = pred[ (pred['birads'] < 1.5) | (pred['birads'] >= 3.5) ]['left_'+label] + pred[ (pred['birads'] < 1.5) | (pred['birads'] >= 3.5) ]['right_'+label]
+    birads_2_3 = pred[ (pred['birads'] >= 1.5) & (pred['birads'] < 3.5) ]['left_'+label] + pred[ (pred['birads'] >= 1.5) & (pred['birads'] < 3.5) ]['right_'+label]
+    
+    sort_rest, cumsum_rest = stats.cumsum_sample(birads_rest)
+    sort_2_3, cumsum_2_3 = stats.cumsum_sample(birads_2_3)
+    
+
+    ax2 = fig.add_subplot(122)
+    ax2.plot(sort_2_3, cumsum_2_3, '.-', label = label + ' (BR 2,3)')
+    ax2.plot(sort_rest, cumsum_rest, '.-',label = 'not ' + label )
+    ax2.set_xlabel(label + ' finding prob')
+    ax2.set_ylabel('$p$')
+    ax2.legend()
+
+
+    fig.suptitle(model + ' model')
+    plt.tight_layout()
+    fig.subplots_adjust(top=0.92)
+    plt.show()
+
+    ####################################################
+
+    side = 'right'
+    model = side + ' breast - Four view'
+    label = 'malignant'
+    
+    # Birads 1 or 1-2
+    birads_rest = pred[ pred['birads'] <= 3.5 ][side+'_'+label] # + pred[pred['birads'] <= 3.5 ]['right_'+label]
+
+    # Birads from 4 up
+    birads_4_6 = pred[ pred['birads'] > 4.5 ][side+'_'+label] # + pred[ pred['birads'] > 4.5 ]['right_'+label]
+
+
+    sort_rest, cumsum_rest = stats.cumsum_sample(birads_rest)
+    sort_4_6, cumsum_4_6 = stats.cumsum_sample(birads_4_6)
+
+
+    # plot the sorted data:
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(121)
+    ax1.plot(sort_4_6, cumsum_4_6, '.-', label = label + ' (BR 4,5,6)')
+    ax1.plot(sort_rest, cumsum_rest, '.-', label = 'not ' + label ) 
+    ax1.set_xlabel(label +' finding prob')
+    ax1.set_ylabel('$p$')
+    ax1.legend()
+
+
+    label = 'benign'
+    birads_rest = pred[ (pred['birads'] < 1.5) | (pred['birads'] >= 3.5) ][side+'_'+label] # +  pred[ (pred['birads'] < 1.5) | (pred['birads'] >= 3.5) ]['right_'+label]
+    birads_2_3 = pred[ (pred['birads'] >= 1.5) & (pred['birads'] < 3.5) ][side+'_'+label] # + pred[ (pred['birads'] >= 1.5) & (pred['birads'] < 3.5) ]['right_'+label]
+    
+    sort_rest, cumsum_rest = stats.cumsum_sample(birads_rest)
+    sort_2_3, cumsum_2_3 = stats.cumsum_sample(birads_2_3)
+    
+
+    ax2 = fig1.add_subplot(122)
+    ax2.plot(sort_2_3, cumsum_2_3, '.-', label = label + ' (BR 2,3)')
+    ax2.plot(sort_rest, cumsum_rest, '.-',label = 'not ' + label )
+    ax2.set_xlabel(label + ' finding prob')
+    ax2.set_ylabel('$p$')
+    ax2.legend()
+
+
+    fig1.suptitle(model + ' model')
+    plt.tight_layout()
+    fig1.subplots_adjust(top=0.92)
+    plt.show()

@@ -9,6 +9,7 @@ import argparse
 from functools import partial
 from multiprocessing import Pool
 from tqdm import tqdm
+import numpy as np
 
 
 import sys
@@ -424,6 +425,23 @@ def images_from_exam_list(exam_list, input_directory, output_directory = os.path
     with Pool(num_processes) as pool:
         pool.map(dicom_to_png_fix_out, dcm_path_list)
     print('Done!\n')
+
+
+def input_array_from_exam_list(exam_list, input_directory, output_directory):
+    images_ls = []
+    dcm_path_list = _generate_dcm_path_list(exam_list[:20], input_directory)
+    for dcm_path in dcm_path_list:
+        ds = pydicom.dcmread(dcm_path)
+        flatten_image = ds.pixel_array.flatten()
+        images_ls.append(flatten_image)
+
+    print(len(images_ls))
+
+    with open(output_directory,'wb') as file: 
+        np.save(file, np.concatenate(images_ls,0))
+
+
+# torch.cat(outputs, 0).numpy()
     
 
 if __name__ == "__main__":
@@ -451,11 +469,19 @@ if __name__ == "__main__":
     #############
     # SINGLE VIEW
 
-    base_exam_list = pickling.unpickle_from_file('../data_cro/dicom_CRO_23072019/sample_data/base_exam_list.pkl')
+    # base_exam_list = pickling.unpickle_from_file('../data_cro/dicom_CRO_23072019/sample_data/base_exam_list.pkl')
 
-    exam_single_list = generate_exam_single_list(base_exam_list, args.output_data_folder, view = 'L-CC')
+    # exam_single_list = generate_exam_single_list(base_exam_list, args.output_data_folder, view = 'L-CC')
 
-    print(exam_single_list)
-    images_dir = os.path.join(args.output_data_folder, 'images_single')
-    images_from_exam_list(exam_single_list, args.input_data_folder, images_dir, bitdepth = 12, num_processes = 10 )
+    # print(exam_single_list)
+    # images_dir = os.path.join(args.output_data_folder, 'images_single')
+    # images_from_exam_list(exam_single_list, args.input_data_folder, images_dir, bitdepth = 12, num_processes = 10 )
     
+
+    #############
+    # INPUT FILE
+
+    exam_list = pickling.unpickle_from_file('../data_cro/dicom_CRO_23072019/sample_data/exam_single_list_before_cropping.pkl')
+
+    output_directory = '../data_cro/dicom_CRO_23072019/sample_single_output/activations/input.pkl'
+    input_array_from_exam_list(exam_list, args.input_data_folder, output_directory)

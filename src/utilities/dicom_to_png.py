@@ -432,6 +432,7 @@ def input_array_from_exam_list(exam_list, input_directory, output_directory):
     dcm_path_list = _generate_dcm_path_list(exam_list[:20], input_directory)
     for dcm_path in dcm_path_list:
         ds = pydicom.dcmread(dcm_path)
+        print(ds.pixel_array.shape)
         flatten_image = ds.pixel_array.flatten()
         images_ls.append(flatten_image)
 
@@ -481,7 +482,7 @@ if __name__ == "__main__":
     #############
     # INPUT FILE
 
-    exam_list = pickling.unpickle_from_file('../data_cro/dicom_CRO_23072019/sample_data/exam_single_list_before_cropping.pkl')
+    exam_list = pickling.unpickle_from_file('/scratch/fbarone/sample_data/exam_single_list_before_cropping.pkl')
 
-    output_directory = '../data_cro/dicom_CRO_23072019/sample_single_output/activations/input.pkl'
+    output_directory = '/home/fbarone/activations/input.pkl'
     input_array_from_exam_list(exam_list, args.input_data_folder, output_directory)

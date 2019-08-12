@@ -254,7 +254,7 @@ if __name__ == "__main__":
     birads_rest = pred[ pred['birads'] <= 3.5 ]['left_'+label] + pred[pred['birads'] <= 3.5 ]['right_'+label]
 
     # Birads from 4 up
-    birads_4_6 = pred[ pred['birads'] > 4.5 ]['left_'+label] + pred[ pred['birads'] > 4.5 ]['right_'+label]
+    birads_4_6 = pred[ pred['birads'] > 3.5 ]['left_'+label] + pred[ pred['birads'] > 3.5 ]['right_'+label]
 
 
     sort_rest, cumsum_rest = stats.cumsum_sample(birads_rest)
@@ -291,6 +291,7 @@ if __name__ == "__main__":
     plt.tight_layout()
     fig.subplots_adjust(top=0.92)
     plt.show()
+
 
     ####################################################
 
